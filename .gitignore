@@ -1,0 +1,39 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.iml
+*.code-workspace
+
+# Node.js
+node_modules/
+dist/
+npm-debug.log
+yarn-error.log
+.env
+.env.local
+
+# Build
+build/
+out/
+target/
+
+# Logs & coverage
+*.log
+coverage/
+.nyc_output/
+
+# Python (if any)
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Misc
+*.pem
+*.key
+.DS_Store
+
