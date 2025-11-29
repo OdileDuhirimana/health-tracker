@@ -2,7 +2,7 @@
 
 A comprehensive NestJS backend API for the Health Program & Medicine Tracker system. This backend provides all the necessary endpoints to support the Next.js frontend application.
 
-## 🚀 Features
+## Features
 
 - **Authentication & Authorization**: JWT-based authentication with role-based access control (Admin, Healthcare Staff, Guest)
 - **User Management**: Complete CRUD operations for user management (Admin only)
@@ -16,13 +16,13 @@ A comprehensive NestJS backend API for the Health Program & Medicine Tracker sys
 - **Dashboard**: Metrics and statistics endpoints
 - **Reports**: CSV export functionality for various reports
 
-## 📋 Prerequisites
+##  Prerequisites
 
 - Node.js (v18 or higher)
 - PostgreSQL (v14 or higher)
 - npm or yarn
 
-## 🛠️ Installation
+##  Installation
 
 1. **Clone the repository and navigate to backend directory:**
    ```bash
@@ -71,7 +71,7 @@ A comprehensive NestJS backend API for the Health Program & Medicine Tracker sys
    - Guest user: `guest@healthtrack.app` / `guest123`
    - Sample programs and medications
 
-## 🏃 Running the Application
+##  Running the Application
 
 **Development mode:**
 ```bash
@@ -86,7 +86,7 @@ npm run start:prod
 
 The API will be available at `http://localhost:3001`
 
-## 📚 API Endpoints
+##  API Endpoints
 
 ### Authentication
 - `POST /auth/login` - User login
@@ -160,7 +160,7 @@ The API will be available at `http://localhost:3001`
 - `GET /reports/attendance` - Generate attendance summary report
 - `GET /reports/user` - Generate user activity report
 
-## 🔐 Authentication
+##  Authentication
 
 All endpoints except `/auth/login` and `/auth/register` require JWT authentication. Include the token in the Authorization header:
 
@@ -168,13 +168,13 @@ All endpoints except `/auth/login` and `/auth/register` require JWT authenticati
 Authorization: Bearer <your-jwt-token>
 ```
 
-## 🎯 Role-Based Access Control
+##  Role-Based Access Control
 
 - **Admin**: Full access to all endpoints
 - **Healthcare Staff**: Can manage patients, record dispensations, mark attendance
 - **Guest**: Limited read-only access to public health programs
 
-## 💊 Duplicate Prevention Logic
+##  Duplicate Prevention Logic
 
 The medication dispensation system implements duplicate prevention:
 - **Daily medications**: Cannot be dispensed more than once per day
@@ -183,7 +183,7 @@ The medication dispensation system implements duplicate prevention:
 
 When attempting to duplicate, the API returns a `400 Bad Request` with details about the previous dispensation.
 
-## 📊 Database Schema
+##  Database Schema
 
 ### Key Entities:
 - **Users**: System users with roles (Admin, Healthcare Staff, Guest)
@@ -195,14 +195,14 @@ When attempting to duplicate, the API returns a `400 Bad Request` with details a
 - **Attendance**: Patient attendance tracking for sessions
 - **ActivityLogs**: System-wide audit trail
 
-## 🧪 Testing
+##  Testing
 
 Run tests:
 ```bash
 npm test
 ```
 
-## 📝 Database Migrations
+##  Database Migrations
 
 Generate migration:
 ```bash
@@ -219,17 +219,8 @@ Revert migration:
 npm run migration:revert
 ```
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 1. **Database connection issues**: Ensure PostgreSQL is running and credentials are correct
 2. **JWT errors**: Verify `JWT_SECRET` is set in `.env`
 3. **CORS issues**: Update `FRONTEND_URL` in `.env` to match your frontend URL
-
-## 📄 License
-
-This project is part of a full-stack internship assessment.
-
-## 👥 Author
-
-Created for HealthTrack - Health Program & Medicine Tracker System
-
