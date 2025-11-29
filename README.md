@@ -2,7 +2,7 @@
 
 A full-stack healthcare management application for tracking patient enrollments, session attendance, and medication dispensation with comprehensive role-based access control.
 
-## 📋 Table of Contents
+## Table of Contents
 - [Overview](#overview)
 - [Tech Stack](#tech-stack)
 - [Setup Instructions](#setup-instructions)
@@ -12,7 +12,7 @@ A full-stack healthcare management application for tracking patient enrollments,
 - [Implementation Details](#implementation-details)
 - [Bonus Features](#bonus-features)
 
-## 🎯 Overview
+## Overview
 
 This system addresses the challenge of manual tracking in healthcare settings by providing a digital platform to:
 - Manage patient enrollments in health programs
@@ -23,7 +23,7 @@ This system addresses the challenge of manual tracking in healthcare settings by
 
 **Problem Solved**: Prevents missed sessions, duplicate medication dispensation, and incomplete treatment records through automated tracking and validation.
 
-## 🛠 Tech Stack
+## Tech Stack
 
 **Frontend:** Next.js 14 with TypeScript, TanStack Query, Tailwind CSS, Recharts
 
@@ -32,7 +32,7 @@ This system addresses the challenge of manual tracking in healthcare settings by
 **Database:** PostgreSQL 14+
 
 
-## 🚀 Setup Instructions
+## Setup Instructions
 
 ### Prerequisites
 - Node.js 18+ and npm
@@ -81,7 +81,7 @@ After running seed (`npm run seed`):
 - 20 Medications with different frequencies
 - Patient enrollments, attendance records, and dispensations spanning 6 months
 
-## 📖 User Guide
+## User Guide
 
 ### For Admin Users
 
@@ -119,7 +119,7 @@ After running seed (`npm run seed`):
 
 **Read-Only Access**: Cannot access patient data, attendance, or dispensations
 
-## 🔐 RBAC Implementation
+## RBAC Implementation
 
 ### Role-Based Access Control (RBAC)
 
@@ -192,7 +192,7 @@ The system implements a comprehensive role-based access control system with thre
 
 **Authorization:** Role validation on every request, resource ownership verification
 
-## 📊 Database Schema
+## Database Schema
 
 ### Core Entities
 
@@ -231,7 +231,7 @@ The system implements a comprehensive role-based access control system with thre
 
 **Data Integrity:** Entities use soft delete to prevent accidental data loss
 
-## 🔧 Implementation Details
+## Implementation Details
 
 ### Duplicate Prevention Logic
 
@@ -258,13 +258,12 @@ The system implements a comprehensive role-based access control system with thre
 
 **Medication Dispensation:** Medications are program-specific. Each dispensation records who dispensed it (accountability). Quantity tracked as string to support various units (tablets, ml, doses). Historical dispensations preserved for audit trail.
 
-**Attendance Tracking:** Recorded per program session with multiple statuses (Present, Absent, Late, Excused, Canceled). Check-in time optional. Past attendance can be recorded.
+**Attendance Tracking:** Recorded per program session with multiple statuses (Present, Absent, Late, Excused, Canceled). Check-in time optional. Past attendance can be updated.
 
-**User Management:** Admin accounts cannot self-register (security). Healthcare staff assigned to programs, patient access derived from program assignments. Users can be deactivated but not deleted (data integrity).
+**User Management:** Admin accounts cannot self-register (security). Healthcare staff assigned to programs, patient access derived from program assignments. 
 
-**Data Persistence:** Soft delete for critical entities. Complete audit trail preserved. Timestamps tracked for all records.
 
-## 🎁 Bonus Features Implemented
+## Bonus Features Implemented
 
 ✅ **Status Badges**: Color-coded indicators for programs (Active/Inactive/Completed), patients, medications, and attendance statuses throughout the UI.
 
@@ -274,10 +273,10 @@ The system implements a comprehensive role-based access control system with thre
 
 ✅ **Activity Logs / Audit Trail**: Complete searchable audit trail tracking all user actions (Patient, Program, Medication, Attendance, User operations) with timestamps, user attribution, and metadata..
 
-✅ **Progress Tracking Charts**: Interactive data visualizations including Program Distribution (Pie Chart), Attendance Trends (Line Chart), Adherence Rates (Bar Chart), and real-time dashboard metrics.
+✅ **Progress Tracking Charts**: Interactive data visualizations including Program Distribution (Pie Chart), Attendance Trends (Line Chart), and real-time dashboard metrics.
 
 
-## 👨‍💻 Author
+## Author
 
 **Odile Duhirimana**
 - GitHub: [@OdileDuhirimana](https://github.com/OdileDuhirimana)
