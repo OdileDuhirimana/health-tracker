@@ -14,8 +14,10 @@ import { ActivityLogsModule } from './modules/activity-logs/activity-logs.module
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { HealthController } from './health.controller';
 
 @Module({
+  controllers: [HealthController],
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
@@ -39,4 +41,3 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
   ],
 })
 export class AppModule {}
-

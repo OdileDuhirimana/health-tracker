@@ -45,7 +45,7 @@ A comprehensive NestJS backend API for the Health Program & Medicine Tracker sys
    DB_PORT=5432
    DB_USERNAME=postgres
    DB_PASSWORD=your_password
-   DB_DATABASE=healthtrack
+   DB_DATABASE=healthtrackdb
    
    JWT_SECRET=your-secret-key-change-in-production
    JWT_EXPIRES_IN=7d
@@ -58,11 +58,13 @@ A comprehensive NestJS backend API for the Health Program & Medicine Tracker sys
 
 4. **Create PostgreSQL database:**
    ```bash
-   createdb healthtrack
+   createdb healthtrackdb
    ```
 
 5. **Run database migrations:**
-   The database will auto-sync in development mode. For production, use migrations.
+   ```bash
+   npm run migration:run
+   ```
 
 6. **Seed the database (optional):**
    You can create a seed script or manually insert test data. Seed data includes:
@@ -81,7 +83,7 @@ npm run start:dev
 **Production mode:**
 ```bash
 npm run build
-npm run start:prod
+npm run start:prod:migrate
 ```
 
 The API will be available at `http://localhost:3001`
@@ -214,6 +216,11 @@ Run migrations:
 npm run migration:run
 ```
 
+Run migrations in production build:
+```bash
+npm run migration:run:prod
+```
+
 Revert migration:
 ```bash
 npm run migration:revert
@@ -224,3 +231,15 @@ npm run migration:revert
 1. **Database connection issues**: Ensure PostgreSQL is running and credentials are correct
 2. **JWT errors**: Verify `JWT_SECRET` is set in `.env`
 3. **CORS issues**: Update `FRONTEND_URL` in `.env` to match your frontend URL
+
+## Docker Deployment
+
+From the repository root:
+
+```bash
+cp .env.example .env
+docker compose up -d --build
+```
+
+Health endpoint:
+- `GET /health`

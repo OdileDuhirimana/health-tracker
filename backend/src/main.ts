@@ -6,12 +6,24 @@ const compression = require('compression');
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.enableShutdownHooks();
   
   // Enable gzip compression for better performance
   app.use(compression());
   
-  // Enable CORS(It is allowing requests from any port for now)
-  app.enableCors({ origin: true, credentials: true });
+  const corsOrigins = (
+    process.env.CORS_ORIGIN ||
+    process.env.FRONTEND_URL ||
+    'http://localhost:3000,http://127.0.0.1:3000'
+  )
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  app.enableCors({
+    origin: corsOrigins.length === 1 ? corsOrigins[0] : corsOrigins,
+    credentials: true,
+  });
 
   // Global validation pipe with better error formatting
   app.useGlobalPipes(
@@ -28,48 +40,57 @@ async function bootstrap() {
         });
         return new BadRequestException(messages.join(', '));
       },
-    }),
+      }),
   );
 
-  // Swagger Documentation Setup
-  const config = new DocumentBuilder()
-    .setTitle('HealthTrack API')
-    .setDescription('Comprehensive API documentation for Health Program & Medicine Tracker System')
-    .setVersion('1.0')
-    .addBearerAuth(
-      {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-        name: 'JWT',
-        description: 'Enter JWT token',
-      },
-      'JWT-auth', 
-    )
-    .addTag('Authentication', 'User authentication and authorization endpoints')
-    .addTag('Users', 'User management endpoints (Admin only)')
-    .addTag('Programs', 'Health program management endpoints')
-    .addTag('Patients', 'Patient management and enrollment endpoints')
-    .addTag('Medications', 'Medication catalog management endpoints')
-    .addTag('Dispensations', 'Medication dispensation tracking with duplicate prevention')
-    .addTag('Attendance', 'Patient attendance tracking endpoints')
-    .addTag('Activity Logs', 'System activity log endpoints')
-    .addTag('Dashboard', 'Dashboard metrics and statistics')
-    .addTag('Reports', 'Report generation endpoints (Admin only)')
-    .addTag('Notifications', 'Notification management endpoints')
-    .build();
+  const isProduction = (process.env.NODE_ENV || '').toLowerCase() === 'production';
+  const enableSwagger = process.env.ENABLE_SWAGGER === 'true' || !isProduction;
 
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document, {
-    customSiteTitle: 'HealthTrack API Documentation',
-    customfavIcon: '/favicon.ico',
-    customCss: '.swagger-ui .topbar { display: none }',
-  });
+  if (enableSwagger) {
+    const config = new DocumentBuilder()
+      .setTitle('HealthTrack API')
+      .setDescription('Comprehensive API documentation for Health Program & Medicine Tracker System')
+      .setVersion('1.0')
+      .addBearerAuth(
+        {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+          name: 'JWT',
+          description: 'Enter JWT token',
+        },
+        'JWT-auth',
+      )
+      .addTag('Authentication', 'User authentication and authorization endpoints')
+      .addTag('Users', 'User management endpoints (Admin only)')
+      .addTag('Programs', 'Health program management endpoints')
+      .addTag('Patients', 'Patient management and enrollment endpoints')
+      .addTag('Medications', 'Medication catalog management endpoints')
+      .addTag('Dispensations', 'Medication dispensation tracking with duplicate prevention')
+      .addTag('Attendance', 'Patient attendance tracking endpoints')
+      .addTag('Activity Logs', 'System activity log endpoints')
+      .addTag('Dashboard', 'Dashboard metrics and statistics')
+      .addTag('Reports', 'Report generation endpoints (Admin only)')
+      .addTag('Notifications', 'Notification management endpoints')
+      .build();
+
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api', app, document, {
+      customSiteTitle: 'HealthTrack API Documentation',
+      customfavIcon: '/favicon.ico',
+      customCss: '.swagger-ui .topbar { display: none }',
+    });
+  }
 
   const port = process.env.PORT || 3001;
   await app.listen(port);
-  console.log(`🚀 Application is running on: http://localhost:${port}`);
-  console.log(`📚 Swagger Documentation available at: http://localhost:${port}/api`);
+  const host = process.env.HOST || '0.0.0.0';
+  const protocol = process.env.APP_PROTOCOL || 'http';
+  const publicHost = process.env.APP_HOST || host;
+
+  console.log(`Application is running on: ${protocol}://${publicHost}:${port}`);
+  if (enableSwagger) {
+    console.log(`Swagger documentation available at: ${protocol}://${publicHost}:${port}/api`);
+  }
 }
 bootstrap();
-
