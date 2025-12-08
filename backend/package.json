@@ -20,6 +20,9 @@
     "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/config/database.config.ts",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/config/database.config.ts",
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/config/database.config.ts",
+    "migration:run:prod": "node dist/scripts/run-migrations.js",
+    "start:prod:migrate": "npm run migration:run:prod && npm run start:prod",
+    "seed": "ts-node src/seeds/run-seed.ts",
     "db:reset": "ts-node reset-and-seed.ts"
   },
   "keywords": [],

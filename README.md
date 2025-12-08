@@ -1,4 +1,4 @@
-# Health Program & Medication Tracker(Vitals)
+# Vitals CareOps (Health Program & Medication Tracker)
 
 A full-stack healthcare management application for tracking patient enrollments, session attendance, and medication dispensation with comprehensive role-based access control.
 
@@ -6,6 +6,7 @@ A full-stack healthcare management application for tracking patient enrollments,
 - [Overview](#overview)
 - [Tech Stack](#tech-stack)
 - [Setup Instructions](#setup-instructions)
+- [Deployment](#deployment)
 - [User Guide](#user-guide)
 - [RBAC Implementation](#rbac-implementation)
 - [Database Schema](#database-schema)
@@ -25,7 +26,7 @@ This system addresses the challenge of manual tracking in healthcare settings by
 
 ## Tech Stack
 
-**Frontend:** Next.js 14 with TypeScript, TanStack Query, Tailwind CSS, Recharts
+**Frontend:** Next.js 16 with TypeScript, TanStack Query, Tailwind CSS, Recharts
 
 **Backend:** NestJS with TypeORM, PostgreSQL, JWT Authentication, Swagger API Documentation
 
@@ -47,8 +48,8 @@ This system addresses the challenge of manual tracking in healthcare settings by
    - Database credentials (host, port, username, password, database name)
    - JWT secret and expiration
    - Application port (3001)
-4. Create PostgreSQL database: `CREATE DATABASE health_tracker;`
-5. Run migrations: `npm run build && npm run typeorm migration:run`
+4. Create PostgreSQL database: `CREATE DATABASE healthtrackdb;`
+5. Run migrations: `npm run migration:run`
 6. Seed database (optional): `npm run seed`
 7. Start server: `npm run start:dev`
 
@@ -60,10 +61,47 @@ API Documentation (Swagger): `http://localhost:3001/api`
 
 1. Navigate to frontend directory: `cd frontend`
 2. Install dependencies: `npm install`
-3. Create `.env.local` file with: `NEXT_PUBLIC_API_URL=http://localhost:3001`
+3. Create `.env.local` file (or copy from template) with: `NEXT_PUBLIC_API_URL=http://localhost:3001`
 4. Start development server: `npm run dev`
 
 Frontend will run on: `http://localhost:3000`
+
+## Deployment
+
+### Option 1: Docker Compose (Recommended)
+
+1. Copy environment template:
+   - `cp .env.example .env`
+2. Update `.env`:
+   - Set a strong `JWT_SECRET`
+   - Set production URLs for `FRONTEND_URL`, `CORS_ORIGIN`, and `NEXT_PUBLIC_API_URL`
+3. Start the full stack:
+   - `docker compose up -d --build`
+4. Verify services:
+   - Frontend: `http://localhost:3000`
+   - Backend health: `http://localhost:3001/health`
+   - Swagger (if `ENABLE_SWAGGER=true`): `http://localhost:3001/api`
+
+### Option 2: Separate Deployments
+
+Backend:
+1. Copy env template: `cp backend/.env.example backend/.env`
+2. Set production values in `backend/.env`
+3. Install/build:
+   - `cd backend`
+   - `npm ci`
+   - `npm run build`
+4. Run migrations and start:
+   - `npm run start:prod:migrate`
+
+Frontend:
+1. Copy env template: `cp frontend/.env.example frontend/.env.local`
+2. Set API URL in `frontend/.env.local`
+3. Install/build/start:
+   - `cd frontend`
+   - `npm ci`
+   - `npm run build`
+   - `npm run start`
 
 ### Default Login Credentials
 

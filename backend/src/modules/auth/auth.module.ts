@@ -17,9 +17,16 @@ import type { StringValue } from 'ms';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService): JwtModuleOptions => {
+        const isProduction = (configService.get<string>('NODE_ENV') || '').toLowerCase() === 'production';
+        const jwtSecret = configService.get<string>('JWT_SECRET');
+
+        if (isProduction && !jwtSecret) {
+          throw new Error('JWT_SECRET must be set in production.');
+        }
+
         const expiresIn = configService.get<string>('JWT_EXPIRES_IN', '7d');
         return {
-          secret: configService.get<string>('JWT_SECRET', 'your-secret-key'),
+          secret: jwtSecret || 'dev-secret-change-me',
           signOptions: {
             expiresIn: expiresIn as StringValue,
           },
@@ -33,4 +40,3 @@ import type { StringValue } from 'ms';
   exports: [AuthService],
 })
 export class AuthModule {}
-
