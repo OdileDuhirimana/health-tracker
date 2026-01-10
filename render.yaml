@@ -1,0 +1,54 @@
+services:
+  - type: web
+    name: vitals-careops-api
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start:prod:migrate
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: HOST
+        value: 0.0.0.0
+      - key: APP_PROTOCOL
+        value: https
+      - key: APP_HOST
+        value: vitals-careops-api.onrender.com
+      - key: ENABLE_SWAGGER
+        value: "true"
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DB_HOST
+        fromDatabase:
+          name: vitals-careops-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: vitals-careops-db
+          property: port
+      - key: DB_USERNAME
+        fromDatabase:
+          name: vitals-careops-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: vitals-careops-db
+          property: password
+      - key: DB_DATABASE
+        fromDatabase:
+          name: vitals-careops-db
+          property: database
+      - key: FRONTEND_URL
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+
+databases:
+  - name: vitals-careops-db
+    plan: free

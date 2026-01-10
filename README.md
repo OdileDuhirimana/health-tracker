@@ -68,6 +68,9 @@ Frontend will run on: `http://localhost:3000`
 
 ## Deployment
 
+For production setup on Render (backend) and Vercel (frontend), see:
+- `docs/deployment.md`
+
 ### Option 1: Docker Compose (Recommended)
 
 1. Copy environment template:
