@@ -1,8 +1,6 @@
 import { ApiResponse } from "@/types";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  (process.env.NODE_ENV === "development" ? "http://localhost:3001" : "");
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 /**
  * Core API request function with authentication and error handling

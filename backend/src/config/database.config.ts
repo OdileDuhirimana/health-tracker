@@ -28,7 +28,7 @@ export class TypeOrmConfigService implements TypeOrmOptionsFactory {
             password: this.configService.get<string>('DB_PASSWORD', 'postgres'),
             database: this.configService.get<string>('DB_DATABASE', 'healthtrackdb'),
           }),
-      ssl: useSsl ? { rejectUnauthorized: false } : false,
+      ssl: useSsl ? { rejectUnauthorized: this.configService.get<string>('DB_SSL_REJECT_UNAUTHORIZED', 'false') === 'true' } : false,
       extra: {
         max: parseInt(this.configService.get<string>('DB_POOL_MAX', '3'), 10),
       },
@@ -60,7 +60,7 @@ export default new DataSource({
         password: process.env.DB_PASSWORD || 'postgres',
         database: process.env.DB_DATABASE || 'healthtrackdb',
       }),
-  ssl: useSsl ? { rejectUnauthorized: false } : false,
+  ssl: useSsl ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED === 'true' } : false,
   extra: {
     max: parseInt(process.env.DB_POOL_MAX || '3', 10),
   },
