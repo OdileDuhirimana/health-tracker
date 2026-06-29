@@ -14,14 +14,24 @@ export class TypeOrmConfigService implements TypeOrmOptionsFactory {
 
   createTypeOrmOptions(): TypeOrmModuleOptions {
     const isDevelopment = this.configService.get<string>('NODE_ENV') === 'development';
+    const databaseUrl = this.configService.get<string>('DATABASE_URL');
+    const useSsl = this.configService.get<string>('DB_SSL', isDevelopment ? 'false' : 'true') === 'true';
     
     return {
       type: 'postgres',
-      host: this.configService.get<string>('DB_HOST', 'localhost'),
-      port: this.configService.get<number>('DB_PORT', 5432),
-      username: this.configService.get<string>('DB_USERNAME', 'postgres'),
-      password: this.configService.get<string>('DB_PASSWORD', 'postgres'),
-      database: this.configService.get<string>('DB_DATABASE', 'healthtrackdb'),
+      ...(databaseUrl
+        ? { url: databaseUrl }
+        : {
+            host: this.configService.get<string>('DB_HOST', 'localhost'),
+            port: this.configService.get<number>('DB_PORT', 5432),
+            username: this.configService.get<string>('DB_USERNAME', 'postgres'),
+            password: this.configService.get<string>('DB_PASSWORD', 'postgres'),
+            database: this.configService.get<string>('DB_DATABASE', 'healthtrackdb'),
+          }),
+      ssl: useSsl ? { rejectUnauthorized: false } : false,
+      extra: {
+        max: parseInt(this.configService.get<string>('DB_POOL_MAX', '3'), 10),
+      },
       // Use autoLoadEntities - this will automatically load entities from forFeature() calls
       autoLoadEntities: true,
       // Also provide explicit paths as fallback
@@ -37,14 +47,23 @@ export class TypeOrmConfigService implements TypeOrmOptionsFactory {
 
 // DataSource for TypeORM CLI (migrations)
 const isDevelopment = process.env.NODE_ENV === 'development';
+const useSsl = (process.env.DB_SSL || (isDevelopment ? 'false' : 'true')) === 'true';
 
 export default new DataSource({
   type: 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5432', 10),
-  username: process.env.DB_USERNAME || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
-  database: process.env.DB_DATABASE || 'healthtrackdb',
+  ...(process.env.DATABASE_URL
+    ? { url: process.env.DATABASE_URL }
+    : {
+        host: process.env.DB_HOST || 'localhost',
+        port: parseInt(process.env.DB_PORT || '5432', 10),
+        username: process.env.DB_USERNAME || 'postgres',
+        password: process.env.DB_PASSWORD || 'postgres',
+        database: process.env.DB_DATABASE || 'healthtrackdb',
+      }),
+  ssl: useSsl ? { rejectUnauthorized: false } : false,
+  extra: {
+    max: parseInt(process.env.DB_POOL_MAX || '3', 10),
+  },
   entities: isDevelopment
     ? [join(__dirname, '..', '**', '*.entity.ts')]
     : [join(__dirname, '..', '**', '*.entity.js')],

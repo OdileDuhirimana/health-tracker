@@ -83,8 +83,8 @@ async function bootstrap() {
   }
 
   const port = process.env.PORT || 3001;
-  await app.listen(port);
   const host = process.env.HOST || '0.0.0.0';
+  await app.listen(port, host);
   const protocol = process.env.APP_PROTOCOL || 'http';
   const publicHost = process.env.APP_HOST || host;
 

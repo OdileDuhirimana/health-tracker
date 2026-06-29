@@ -45,9 +45,9 @@ services:
           name: vitals-careops-db
           property: database
       - key: FRONTEND_URL
-        sync: false
+        value: https://vitals-zeta.vercel.app
       - key: CORS_ORIGIN
-        sync: false
+        value: https://vitals-zeta.vercel.app
 
 databases:
   - name: vitals-careops-db
