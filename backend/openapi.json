@@ -1,0 +1,3390 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "HealthController_getHealth",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "description": "Authenticate user and receive JWT token",
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                    "user": {
+                      "id": "uuid",
+                      "email": "user@example.com",
+                      "name": "John Doe",
+                      "role": "Admin"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials"
+          }
+        },
+        "summary": "User login",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "description": "Register a new user account. Only Healthcare Staff or Guest roles can be registered. Admin accounts cannot be created via this endpoint and must be created by system administrators.",
+        "operationId": "AuthController_register",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "id": "uuid",
+                    "email": "user@example.com",
+                    "name": "John Doe",
+                    "role": "Healthcare Staff",
+                    "status": "Active"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid registration data (e.g., email already exists, invalid role)"
+          },
+          "401": {
+            "description": "Email already exists"
+          }
+        },
+        "summary": "User registration",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/profile": {
+      "get": {
+        "description": "Get authenticated user profile information",
+        "operationId": "AuthController_getProfile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "User profile retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "id": "uuid",
+                    "email": "user@example.com",
+                    "name": "John Doe",
+                    "role": "Admin",
+                    "status": "Active"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get user profile",
+        "tags": [
+          "Authentication"
+        ]
+      },
+      "post": {
+        "description": "Update own profile/password. All authenticated users can update their own profile.",
+        "operationId": "AuthController_updateProfile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profile updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "id": "uuid",
+                    "email": "user@example.com",
+                    "name": "John Doe Updated",
+                    "role": "Admin",
+                    "status": "Active"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid data (e.g., current password incorrect)"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Update user profile",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/users": {
+      "post": {
+        "description": "Admin only - Create a new user account",
+        "operationId": "UsersController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User created successfully"
+          },
+          "400": {
+            "description": "Email already exists"
+          },
+          "403": {
+            "description": "Forbidden - Admin access required"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Create new user",
+        "tags": [
+          "Users"
+        ]
+      },
+      "get": {
+        "description": "Admin only - Get list of all users with optional search and pagination. Search applies to all records in backend.",
+        "operationId": "UsersController_findAll",
+        "parameters": [
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Search by name or email (searches all records)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (default: 1)",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Items per page (default: 50, max: 100)",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of users retrieved successfully"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "List all users",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/users/{id}": {
+      "get": {
+        "description": "Admin only - Get detailed user information",
+        "operationId": "UsersController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "User UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User found"
+          },
+          "404": {
+            "description": "User not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get user by ID",
+        "tags": [
+          "Users"
+        ]
+      },
+      "patch": {
+        "description": "Admin only - Update user information",
+        "operationId": "UsersController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "User UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User updated successfully"
+          },
+          "404": {
+            "description": "User not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Update user",
+        "tags": [
+          "Users"
+        ]
+      },
+      "delete": {
+        "description": "Admin only - Delete a user account",
+        "operationId": "UsersController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "User UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User deleted successfully"
+          },
+          "404": {
+            "description": "User not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Delete user",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/activity-logs": {
+      "get": {
+        "description": "Admin only - Get system activity logs with optional filters and pagination. Search applies to all records in backend.",
+        "operationId": "ActivityLogsController_findAll",
+        "parameters": [
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "description": "Filter by activity type",
+            "schema": {
+              "enum": [
+                "enrollment",
+                "medication",
+                "attendance",
+                "program",
+                "user",
+                "session"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by user UUID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "date",
+            "required": false,
+            "in": "query",
+            "description": "Filter by date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Search by description, user name, or type (searches all records)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Items per page (default: 50, max: 100)",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (default: 1)",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Activity logs retrieved successfully"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "List all activity logs",
+        "tags": [
+          "Activity Logs"
+        ]
+      }
+    },
+    "/programs": {
+      "post": {
+        "description": "Admin only - Create a new health program",
+        "operationId": "ProgramsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProgramDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Program created successfully"
+          },
+          "403": {
+            "description": "Forbidden - Admin access required"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Create program",
+        "tags": [
+          "Programs"
+        ]
+      },
+      "get": {
+        "description": "Get all programs with optional filters. Guest users can only view active (public) programs without patient data.",
+        "operationId": "ProgramsController_findAll",
+        "parameters": [
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "Mental Health",
+                "Vaccination",
+                "Diabetes",
+                "Other"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "Active",
+                "Inactive"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Search by name or description",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "startDate",
+            "required": false,
+            "in": "query",
+            "description": "Filter by start date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": false,
+            "in": "query",
+            "description": "Filter by end date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (default: 1)",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Items per page (default: 50, max: 100)",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of programs retrieved successfully. Guest users receive programs without patient enrollment data."
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "List all programs",
+        "tags": [
+          "Programs"
+        ]
+      }
+    },
+    "/programs/{id}": {
+      "get": {
+        "description": "Get detailed program information. Guest users can only view active programs without patient enrollment data.",
+        "operationId": "ProgramsController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Program UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Program found. Guest users receive program without patient data."
+          },
+          "404": {
+            "description": "Program not found or not accessible (Guest users can only access active programs)"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get program by ID",
+        "tags": [
+          "Programs"
+        ]
+      },
+      "patch": {
+        "description": "Admin only - Update program information",
+        "operationId": "ProgramsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Program UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProgramDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Program updated successfully"
+          },
+          "404": {
+            "description": "Program not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Update program",
+        "tags": [
+          "Programs"
+        ]
+      },
+      "delete": {
+        "description": "Admin only - Delete a program",
+        "operationId": "ProgramsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Program UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Program deleted successfully"
+          },
+          "404": {
+            "description": "Program not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Delete program",
+        "tags": [
+          "Programs"
+        ]
+      }
+    },
+    "/patients": {
+      "post": {
+        "description": "Create a new patient record (Admin and Healthcare Staff only)",
+        "operationId": "PatientsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePatientDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Patient created successfully"
+          },
+          "403": {
+            "description": "Forbidden - Guest users cannot create patients"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Create new patient",
+        "tags": [
+          "Patients"
+        ]
+      },
+      "get": {
+        "description": "Get all patients with optional filters. Admin sees all; Healthcare Staff sees only assigned patients.",
+        "operationId": "PatientsController_findAll",
+        "parameters": [
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Search by name, ID, email, or phone",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "programId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by program UUID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "Active",
+                "Inactive"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (default: 1)",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Items per page (default: 50, max: 100)",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "sortBy",
+            "required": false,
+            "in": "query",
+            "description": "Sort by progress or adherence rate",
+            "schema": {
+              "enum": [
+                "progress",
+                "adherence"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "required": false,
+            "in": "query",
+            "description": "Sort order (default: DESC)",
+            "schema": {
+              "enum": [
+                "ASC",
+                "DESC"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of patients retrieved successfully"
+          },
+          "403": {
+            "description": "Forbidden - Guest users cannot view patient data"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "List all patients",
+        "tags": [
+          "Patients"
+        ]
+      }
+    },
+    "/patients/{id}": {
+      "get": {
+        "description": "Get detailed patient information. Admin sees all; Healthcare Staff sees only assigned patients.",
+        "operationId": "PatientsController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Patient UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Patient found"
+          },
+          "403": {
+            "description": "Forbidden - Guest users cannot view patient data or patient not assigned to staff"
+          },
+          "404": {
+            "description": "Patient not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get patient by ID",
+        "tags": [
+          "Patients"
+        ]
+      },
+      "patch": {
+        "description": "Update patient information. Admin can update all; Healthcare Staff can only update assigned patients.",
+        "operationId": "PatientsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Patient UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePatientDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Patient updated successfully"
+          },
+          "403": {
+            "description": "Forbidden - Guest users cannot update patients or patient not assigned to staff"
+          },
+          "404": {
+            "description": "Patient not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Update patient",
+        "tags": [
+          "Patients"
+        ]
+      }
+    },
+    "/patients/{id}/stats": {
+      "get": {
+        "description": "Get patient statistics and progress. Admin sees all; Healthcare Staff sees only assigned patients.",
+        "operationId": "PatientsController_getStats",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Patient UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Patient statistics retrieved"
+          },
+          "403": {
+            "description": "Forbidden - Guest users cannot view patient statistics or patient not assigned to staff"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get patient statistics",
+        "tags": [
+          "Patients"
+        ]
+      }
+    },
+    "/patients/{id}/enroll": {
+      "post": {
+        "description": "Enroll a patient in a health program. Admin can assign staff; Healthcare Staff can enroll but cannot assign staff.",
+        "operationId": "PatientsController_enroll",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Patient UUID",
+            "schema": {}
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnrollPatientDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Patient enrolled successfully"
+          },
+          "400": {
+            "description": "Patient already enrolled in this program"
+          },
+          "403": {
+            "description": "Forbidden - Guest users cannot enroll patients"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Enroll patient in program",
+        "tags": [
+          "Patients"
+        ]
+      }
+    },
+    "/patients/{id}/programs/{programId}": {
+      "delete": {
+        "description": "Admin only - Remove a patient from a health program",
+        "operationId": "PatientsController_removeFromProgram",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Patient UUID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "programId",
+            "required": true,
+            "in": "path",
+            "description": "Program UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Patient removed from program successfully"
+          },
+          "403": {
+            "description": "Forbidden - Only admins can remove patients from programs"
+          },
+          "404": {
+            "description": "Enrollment not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Remove patient from program",
+        "tags": [
+          "Patients"
+        ]
+      }
+    },
+    "/patients/{id}/programs/{programId}/complete": {
+      "patch": {
+        "description": "Mark a patient's program as completed. Admin can mark any program; Healthcare Staff can only mark programs for assigned patients.",
+        "operationId": "PatientsController_markProgramCompleted",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Patient UUID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "programId",
+            "required": true,
+            "in": "path",
+            "description": "Program UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "completionNotes": {
+                    "type": "string",
+                    "description": "Optional notes about program completion"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Program marked as completed successfully"
+          },
+          "400": {
+            "description": "Program is already completed"
+          },
+          "403": {
+            "description": "Forbidden - Healthcare Staff can only mark programs for assigned patients"
+          },
+          "404": {
+            "description": "Enrollment not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Mark program as completed",
+        "tags": [
+          "Patients"
+        ]
+      }
+    },
+    "/patients/missed-sessions": {
+      "get": {
+        "description": "Get list of patients who have missed sessions. Flags patients based on expected vs actual attendance.",
+        "operationId": "PatientsController_getPatientsWithMissedSessions",
+        "parameters": [
+          {
+            "name": "programId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Patients with missed sessions retrieved successfully"
+          },
+          "403": {
+            "description": "Forbidden - Guest users cannot view patient data"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get patients with missed sessions",
+        "tags": [
+          "Patients"
+        ]
+      }
+    },
+    "/patients/{id}/missed-sessions": {
+      "get": {
+        "description": "Get detailed information about missed sessions for a specific patient",
+        "operationId": "PatientsController_getPatientMissedSessions",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Patient UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Missed sessions retrieved successfully"
+          },
+          "404": {
+            "description": "Patient not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get missed sessions for a patient",
+        "tags": [
+          "Patients"
+        ]
+      }
+    },
+    "/notifications": {
+      "get": {
+        "description": "Get all notifications for the current user",
+        "operationId": "NotificationsController_findAll",
+        "parameters": [
+          {
+            "name": "read",
+            "required": false,
+            "in": "query",
+            "description": "Filter by read status",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Max items to return (default: 50, max: 100)",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notifications retrieved successfully"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get all notifications for user",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/notifications/unread/count": {
+      "get": {
+        "description": "Get count of unread notifications for the current user",
+        "operationId": "NotificationsController_getUnreadCount",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Unread count retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "count": 5
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get unread notification count",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/notifications/{id}/read": {
+      "patch": {
+        "description": "Mark a specific notification as read",
+        "operationId": "NotificationsController_markAsRead",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Notification UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notification marked as read"
+          },
+          "404": {
+            "description": "Notification not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Mark notification as read",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/notifications/read-all": {
+      "patch": {
+        "description": "Mark all notifications as read for the current user",
+        "operationId": "NotificationsController_markAllAsRead",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "All notifications marked as read"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Mark all notifications as read",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/notifications/{id}": {
+      "delete": {
+        "description": "Delete a specific notification",
+        "operationId": "NotificationsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Notification UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notification deleted"
+          },
+          "404": {
+            "description": "Notification not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Delete notification",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/medications": {
+      "post": {
+        "description": "Admin only - Create a new medication",
+        "operationId": "MedicationsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMedicationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Medication created successfully"
+          },
+          "403": {
+            "description": "Forbidden - Admin access required"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Create medication",
+        "tags": [
+          "Medications"
+        ]
+      },
+      "get": {
+        "description": "Get all medications with optional search. Healthcare Staff only see medications from assigned programs.",
+        "operationId": "MedicationsController_findAll",
+        "parameters": [
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Search by name or dosage",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (default: 1)",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Items per page (default: 50, max: 100)",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of medications retrieved successfully"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "List all medications",
+        "tags": [
+          "Medications"
+        ]
+      }
+    },
+    "/medications/{id}": {
+      "get": {
+        "description": "Get detailed medication information",
+        "operationId": "MedicationsController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Medication UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Medication found"
+          },
+          "404": {
+            "description": "Medication not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get medication by ID",
+        "tags": [
+          "Medications"
+        ]
+      },
+      "patch": {
+        "description": "Admin only - Update medication information",
+        "operationId": "MedicationsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Medication UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMedicationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Medication updated successfully"
+          },
+          "404": {
+            "description": "Medication not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Update medication",
+        "tags": [
+          "Medications"
+        ]
+      },
+      "delete": {
+        "description": "Admin only - Delete a medication",
+        "operationId": "MedicationsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Medication UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Medication deleted successfully"
+          },
+          "404": {
+            "description": "Medication not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Delete medication",
+        "tags": [
+          "Medications"
+        ]
+      }
+    },
+    "/dispensations": {
+      "post": {
+        "description": "Record a medication dispensation with automatic duplicate prevention based on frequency (daily/monthly) - Admin and Healthcare Staff only",
+        "operationId": "DispensationsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDispensationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Dispensation recorded successfully"
+          },
+          "400": {
+            "description": "Duplicate dispensation prevented - already dispensed within frequency window"
+          },
+          "403": {
+            "description": "Forbidden - Guest users cannot record dispensations"
+          },
+          "404": {
+            "description": "Patient, medication, or program not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Record medication dispensation",
+        "tags": [
+          "Dispensations"
+        ]
+      },
+      "get": {
+        "description": "Get all medication dispensations with optional filters. Admin sees all; Healthcare Staff sees only assigned patients.",
+        "operationId": "DispensationsController_findAll",
+        "parameters": [
+          {
+            "name": "patientId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by patient UUID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "programId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by program UUID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "medicationId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by medication UUID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "startDate",
+            "required": false,
+            "in": "query",
+            "description": "Filter by start date (ISO format)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": false,
+            "in": "query",
+            "description": "Filter by end date (ISO format)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortBy",
+            "required": false,
+            "in": "query",
+            "description": "Field to sort by (default: dispensedAt)",
+            "schema": {
+              "enum": [
+                "dispensedAt",
+                "createdAt",
+                "quantity"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "required": false,
+            "in": "query",
+            "description": "Sort order (default: DESC)",
+            "schema": {
+              "enum": [
+                "ASC",
+                "DESC"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Max records to return (default: 500, max: 1000)",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of dispensations retrieved successfully"
+          },
+          "403": {
+            "description": "Forbidden - Guest users cannot view dispensations"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "List all dispensations",
+        "tags": [
+          "Dispensations"
+        ]
+      }
+    },
+    "/dispensations/pending": {
+      "get": {
+        "description": "Get list of medications pending dispensation (Admin and Healthcare Staff only)",
+        "operationId": "DispensationsController_getPending",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Pending dispensations retrieved"
+          },
+          "403": {
+            "description": "Forbidden - Guest users cannot view pending dispensations"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get pending dispensations",
+        "tags": [
+          "Dispensations"
+        ]
+      }
+    },
+    "/dispensations/overdue/count": {
+      "get": {
+        "description": "Get count of overdue medication dispensations. Admin sees all; Healthcare Staff sees only assigned patients.",
+        "operationId": "DispensationsController_getOverdueCount",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Overdue count retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "count": 5
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Guest users cannot view overdue count"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get overdue medications count",
+        "tags": [
+          "Dispensations"
+        ]
+      }
+    },
+    "/dispensations/overdue/details": {
+      "get": {
+        "description": "Get detailed list of all overdue medication dispensations. Admin sees all; Healthcare Staff sees only assigned patients.",
+        "operationId": "DispensationsController_getOverdueDetails",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Overdue medications details retrieved"
+          },
+          "403": {
+            "description": "Forbidden - Guest users cannot view overdue details"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get overdue medications details",
+        "tags": [
+          "Dispensations"
+        ]
+      }
+    },
+    "/dispensations/tracking-table": {
+      "get": {
+        "description": "Get comprehensive medication tracking table with adherence rates. Admin sees all; Healthcare Staff sees only assigned patients.",
+        "operationId": "DispensationsController_getTrackingTable",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (default: 1)",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Items per page (default: 100, max: 500)",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Search by patient, medication, or program name",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Medication tracking table retrieved"
+          },
+          "403": {
+            "description": "Forbidden - Guest users cannot view tracking table"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get medication tracking table",
+        "tags": [
+          "Dispensations"
+        ]
+      }
+    },
+    "/dispensations/patient/{patientId}/history": {
+      "get": {
+        "description": "Get complete medication dispensation history for a patient. Admin sees all; Healthcare Staff sees only assigned patients.",
+        "operationId": "DispensationsController_getPatientHistory",
+        "parameters": [
+          {
+            "name": "patientId",
+            "required": true,
+            "in": "path",
+            "description": "Patient UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Patient medication history retrieved"
+          },
+          "403": {
+            "description": "Forbidden - Guest users cannot view patient history or patient not assigned to staff"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get patient medication history",
+        "tags": [
+          "Dispensations"
+        ]
+      }
+    },
+    "/dispensations/{id}": {
+      "get": {
+        "description": "Get detailed dispensation information (Admin and Healthcare Staff only)",
+        "operationId": "DispensationsController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Dispensation UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dispensation found"
+          },
+          "403": {
+            "description": "Forbidden - Guest users cannot view dispensations"
+          },
+          "404": {
+            "description": "Dispensation not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get dispensation by ID",
+        "tags": [
+          "Dispensations"
+        ]
+      }
+    },
+    "/attendance": {
+      "post": {
+        "description": "Mark attendance for multiple patients in a program (Admin and Healthcare Staff only)",
+        "operationId": "AttendanceController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAttendanceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Attendance marked successfully"
+          },
+          "403": {
+            "description": "Forbidden - Guest users cannot mark attendance"
+          },
+          "404": {
+            "description": "Program not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Mark attendance",
+        "tags": [
+          "Attendance"
+        ]
+      },
+      "get": {
+        "description": "Get all attendance records with optional filters and pagination. Admin sees all; Healthcare Staff sees only assigned patients. Search applies to all records in backend.",
+        "operationId": "AttendanceController_findAll",
+        "parameters": [
+          {
+            "name": "programId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by program UUID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "date",
+            "required": false,
+            "in": "query",
+            "description": "Filter by date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "Present",
+                "Absent",
+                "Late",
+                "Excused",
+                "Canceled"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Search by patient name or program name (searches all records)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (default: 1)",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Items per page (default: 50, max: 100)",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of attendance records retrieved successfully"
+          },
+          "403": {
+            "description": "Forbidden - Guest users cannot view attendance"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "List all attendance records",
+        "tags": [
+          "Attendance"
+        ]
+      }
+    },
+    "/attendance/statistics": {
+      "get": {
+        "description": "Get attendance statistics and rates. Admin sees all; Healthcare Staff sees only assigned patients.",
+        "operationId": "AttendanceController_getStatistics",
+        "parameters": [
+          {
+            "name": "programId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by program UUID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "startDate",
+            "required": false,
+            "in": "query",
+            "description": "Filter by start date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": false,
+            "in": "query",
+            "description": "Filter by end date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Attendance statistics retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "total": 150,
+                    "present": 125,
+                    "absent": 20,
+                    "late": 5,
+                    "excused": 0,
+                    "attendanceRate": 86.67
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Guest users cannot view attendance statistics"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get attendance statistics",
+        "tags": [
+          "Attendance"
+        ]
+      }
+    },
+    "/attendance/{id}": {
+      "patch": {
+        "description": "Update a single attendance record. Admin can update any; Healthcare Staff can only update for assigned patients.",
+        "operationId": "AttendanceController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Attendance UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAttendanceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Attendance updated successfully"
+          },
+          "403": {
+            "description": "Forbidden - Healthcare Staff can only update attendance for assigned patients"
+          },
+          "404": {
+            "description": "Attendance not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Update attendance record",
+        "tags": [
+          "Attendance"
+        ]
+      },
+      "delete": {
+        "description": "Admin only - Delete a single attendance record",
+        "operationId": "AttendanceController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Attendance UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Attendance deleted successfully"
+          },
+          "403": {
+            "description": "Forbidden - Only admins can delete attendance"
+          },
+          "404": {
+            "description": "Attendance not found"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Delete attendance record",
+        "tags": [
+          "Attendance"
+        ]
+      }
+    },
+    "/attendance/bulk": {
+      "post": {
+        "description": "Update multiple attendance records at once (Admin and Healthcare Staff only)",
+        "operationId": "AttendanceController_bulkUpdate",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Attendance records updated successfully"
+          },
+          "403": {
+            "description": "Forbidden - Guest users cannot update attendance"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Bulk update attendance",
+        "tags": [
+          "Attendance"
+        ]
+      }
+    },
+    "/dashboard/metrics": {
+      "get": {
+        "description": "Get key metrics for dashboard overview. Admin sees all; Healthcare Staff sees only assigned patients.",
+        "operationId": "DashboardController_getMetrics",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Metrics retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "totalPrograms": 8,
+                    "activePatients": 128,
+                    "pendingMedications": 12,
+                    "overdueSessions": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get dashboard metrics",
+        "tags": [
+          "Dashboard"
+        ]
+      }
+    },
+    "/dashboard/programs-overview": {
+      "get": {
+        "description": "Get programs with patient enrollment counts. Admin sees all; Healthcare Staff sees only programs with assigned patients.",
+        "operationId": "DashboardController_getProgramsOverview",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Programs overview retrieved"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get programs overview",
+        "tags": [
+          "Dashboard"
+        ]
+      }
+    },
+    "/dashboard/attendance-data": {
+      "get": {
+        "description": "Get attendance summary data. Admin sees all; Healthcare Staff sees only assigned patients.",
+        "operationId": "DashboardController_getAttendanceData",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Attendance data retrieved"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get attendance data",
+        "tags": [
+          "Dashboard"
+        ]
+      }
+    },
+    "/dashboard/adherence-rate": {
+      "get": {
+        "description": "Get medication adherence rate data. Admin sees all; Healthcare Staff sees only assigned patients.",
+        "operationId": "DashboardController_getAdherenceRate",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Adherence rate data retrieved"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get adherence rate",
+        "tags": [
+          "Dashboard"
+        ]
+      }
+    },
+    "/dashboard/program-duration-summary": {
+      "get": {
+        "description": "Get summary of programs with duration, enrollments, and adherence. Admin sees all; Healthcare Staff sees only assigned programs.",
+        "operationId": "DashboardController_getProgramDurationSummary",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Program duration summary retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": [
+                    {
+                      "programName": "Mental Health Support",
+                      "startDate": "2025-01-01",
+                      "endDate": "2025-03-31",
+                      "expectedEnrollments": 50,
+                      "activePatients": 42,
+                      "adherencePercent": 87
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get program duration summary",
+        "tags": [
+          "Dashboard"
+        ]
+      }
+    },
+    "/dashboard/upcoming-dispensations": {
+      "get": {
+        "description": "Get list of patients with medications due today or overdue. Admin sees all; Healthcare Staff sees only assigned patients.",
+        "operationId": "DashboardController_getUpcomingDispensations",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Upcoming dispensations retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": [
+                    {
+                      "patientId": "uuid",
+                      "patientName": "John Doe",
+                      "programId": "uuid",
+                      "programName": "Diabetes Management",
+                      "medicationId": "uuid",
+                      "medicationName": "Insulin",
+                      "nextDueDate": "2025-11-03T10:00:00Z",
+                      "status": "overdue"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Get upcoming dispensation alerts",
+        "tags": [
+          "Dashboard"
+        ]
+      }
+    },
+    "/reports/patient": {
+      "get": {
+        "description": "Admin only - Generate patient progress report for CSV export",
+        "operationId": "ReportsController_generatePatientReport",
+        "parameters": [
+          {
+            "name": "programId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by program UUID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "startDate",
+            "required": false,
+            "in": "query",
+            "description": "Filter by start date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": false,
+            "in": "query",
+            "description": "Filter by end date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Patient report generated"
+          },
+          "403": {
+            "description": "Forbidden - Admin access required"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Generate patient progress report",
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
+    "/reports/program": {
+      "get": {
+        "description": "Admin only - Generate program performance report",
+        "operationId": "ReportsController_generateProgramReport",
+        "parameters": [
+          {
+            "name": "startDate",
+            "required": false,
+            "in": "query",
+            "description": "Filter by start date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": false,
+            "in": "query",
+            "description": "Filter by end date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Program report generated"
+          },
+          "403": {
+            "description": "Forbidden - Admin access required"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Generate program performance report",
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
+    "/reports/medication": {
+      "get": {
+        "description": "Admin only - Generate medication tracking report",
+        "operationId": "ReportsController_generateMedicationReport",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Medication report generated"
+          },
+          "403": {
+            "description": "Forbidden - Admin access required"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Generate medication tracking report",
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
+    "/reports/attendance": {
+      "get": {
+        "description": "Admin only - Generate attendance summary report",
+        "operationId": "ReportsController_generateAttendanceReport",
+        "parameters": [
+          {
+            "name": "programId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by program UUID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "startDate",
+            "required": false,
+            "in": "query",
+            "description": "Filter by start date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": false,
+            "in": "query",
+            "description": "Filter by end date (YYYY-MM-DD)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Attendance report generated"
+          },
+          "403": {
+            "description": "Forbidden - Admin access required"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Generate attendance summary report",
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
+    "/reports/user": {
+      "get": {
+        "description": "Admin only - Generate user activity report",
+        "operationId": "ReportsController_generateUserReport",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "User report generated"
+          },
+          "403": {
+            "description": "Forbidden - Only admins can generate user reports"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Generate user activity report",
+        "tags": [
+          "Reports"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "HealthTrack API",
+    "description": "Comprehensive API documentation for Health Program & Medicine Tracker System",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "Authentication",
+      "description": "User authentication and authorization endpoints"
+    },
+    {
+      "name": "Users",
+      "description": "User management endpoints (Admin only)"
+    },
+    {
+      "name": "Programs",
+      "description": "Health program management endpoints"
+    },
+    {
+      "name": "Patients",
+      "description": "Patient management and enrollment endpoints"
+    },
+    {
+      "name": "Medications",
+      "description": "Medication catalog management endpoints"
+    },
+    {
+      "name": "Dispensations",
+      "description": "Medication dispensation tracking with duplicate prevention"
+    },
+    {
+      "name": "Attendance",
+      "description": "Patient attendance tracking endpoints"
+    },
+    {
+      "name": "Activity Logs",
+      "description": "System activity log endpoints"
+    },
+    {
+      "name": "Dashboard",
+      "description": "Dashboard metrics and statistics"
+    },
+    {
+      "name": "Reports",
+      "description": "Report generation endpoints (Admin only)"
+    },
+    {
+      "name": "Notifications",
+      "description": "Notification management endpoints"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "JWT-auth": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http",
+        "name": "JWT",
+        "description": "Enter JWT token"
+      }
+    },
+    "schemas": {
+      "LoginDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "admin@healthtrack.app",
+            "description": "User email address"
+          },
+          "password": {
+            "type": "string",
+            "example": "admin123",
+            "description": "User password"
+          },
+          "role": {
+            "type": "string",
+            "example": "Admin",
+            "enum": [
+              "Admin",
+              "Healthcare Staff",
+              "Guest"
+            ],
+            "description": "User role (optional - backend determines role from user account)"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "RegisterDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "John Doe",
+            "description": "Full name"
+          },
+          "email": {
+            "type": "string",
+            "example": "john@example.com",
+            "description": "Email address"
+          },
+          "password": {
+            "type": "string",
+            "example": "SecurePass123",
+            "description": "Password (minimum 8 characters; must include uppercase, lowercase, and a number)",
+            "minLength": 8
+          },
+          "role": {
+            "type": "string",
+            "example": "Healthcare Staff",
+            "enum": [
+              "Healthcare Staff",
+              "Guest"
+            ],
+            "description": "User role - Only Healthcare Staff or Guest allowed. Admin accounts cannot be created via registration. Defaults to Healthcare Staff if not provided.",
+            "default": "Healthcare Staff"
+          }
+        },
+        "required": [
+          "name",
+          "email",
+          "password"
+        ]
+      },
+      "UpdateProfileDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Jane Doe",
+            "description": "New display name"
+          },
+          "password": {
+            "type": "string",
+            "example": "NewSecurePass123",
+            "description": "New password (minimum 8 characters; must include uppercase, lowercase, and a number). Requires currentPassword to also be provided.",
+            "minLength": 8
+          },
+          "currentPassword": {
+            "type": "string",
+            "example": "OldPassword123",
+            "description": "Current password — required when changing the password"
+          }
+        }
+      },
+      "CreateUserDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Jane Smith",
+            "description": "Full name of the user"
+          },
+          "email": {
+            "type": "string",
+            "example": "jane.smith@healthtrack.app",
+            "description": "Email address (must be unique)"
+          },
+          "password": {
+            "type": "string",
+            "example": "SecurePassword123",
+            "description": "Password (minimum 8 characters; must include uppercase, lowercase, and a number)",
+            "minLength": 8
+          },
+          "role": {
+            "type": "string",
+            "example": "Healthcare Staff",
+            "enum": [
+              "Admin",
+              "Healthcare Staff",
+              "Guest"
+            ],
+            "description": "Role of the user. Admin can create any role, but typically Healthcare Staff or Guest.",
+            "default": "Healthcare Staff"
+          },
+          "programIds": {
+            "example": [
+              "550e8400-e29b-41d4-a716-446655440000"
+            ],
+            "description": "Array of program UUIDs to assign this user to (for Healthcare Staff role)",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "email",
+          "password"
+        ]
+      },
+      "UpdateUserDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Jane Smith",
+            "description": "Full name of the user"
+          },
+          "email": {
+            "type": "string",
+            "example": "jane.smith@healthtrack.app",
+            "description": "Email address (must be unique)"
+          },
+          "password": {
+            "type": "string",
+            "example": "SecurePassword123",
+            "description": "Password (minimum 8 characters; must include uppercase, lowercase, and a number)",
+            "minLength": 8
+          },
+          "role": {
+            "type": "string",
+            "example": "Healthcare Staff",
+            "enum": [
+              "Admin",
+              "Healthcare Staff",
+              "Guest"
+            ],
+            "description": "Role of the user. Admin can create any role, but typically Healthcare Staff or Guest.",
+            "default": "Healthcare Staff"
+          },
+          "programIds": {
+            "example": [
+              "550e8400-e29b-41d4-a716-446655440000"
+            ],
+            "description": "Array of program UUIDs to assign this user to (for Healthcare Staff role). This will replace existing program assignments.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string",
+            "example": "Active",
+            "enum": [
+              "Active",
+              "Inactive"
+            ],
+            "description": "Status of the user account"
+          }
+        }
+      },
+      "ProgramComponentDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "session",
+            "enum": [
+              "session",
+              "consultation",
+              "group_discussion"
+            ],
+            "description": "Type of program component"
+          },
+          "name": {
+            "type": "string",
+            "example": "Individual Therapy Session",
+            "description": "Name of the program component"
+          },
+          "description": {
+            "type": "string",
+            "example": "One-on-one therapy session with licensed therapist",
+            "description": "Optional description of the component"
+          }
+        },
+        "required": [
+          "type",
+          "name"
+        ]
+      },
+      "CreateProgramDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Mental Health Support Program",
+            "description": "Name of the health program"
+          },
+          "type": {
+            "type": "string",
+            "example": "Mental Health",
+            "enum": [
+              "Mental Health",
+              "Vaccination",
+              "Diabetes",
+              "Other"
+            ],
+            "description": "Type/category of the program"
+          },
+          "description": {
+            "type": "string",
+            "example": "Comprehensive mental health support program for patients",
+            "description": "Detailed description of the program"
+          },
+          "status": {
+            "type": "string",
+            "example": "Active",
+            "enum": [
+              "Active",
+              "Inactive"
+            ],
+            "default": "Active",
+            "description": "Status of the program"
+          },
+          "sessionFreq": {
+            "type": "string",
+            "example": "weekly",
+            "enum": [
+              "daily",
+              "weekly",
+              "monthly"
+            ],
+            "default": "weekly",
+            "description": "Frequency of program sessions"
+          },
+          "components": {
+            "example": [
+              {
+                "type": "session",
+                "name": "Individual Therapy",
+                "description": "One-on-one sessions"
+              },
+              {
+                "type": "consultation",
+                "name": "Medical Consultation",
+                "description": "Regular check-ups"
+              }
+            ],
+            "description": "Array of program components (sessions, consultations, group discussions)",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProgramComponentDto"
+            }
+          },
+          "medicationIds": {
+            "example": [
+              "550e8400-e29b-41d4-a716-446655440000"
+            ],
+            "description": "Array of medication UUIDs to assign to this program",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "staffIds": {
+            "example": [
+              "550e8400-e29b-41d4-a716-446655440001"
+            ],
+            "description": "Array of staff member UUIDs to assign to this program",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "type"
+        ]
+      },
+      "UpdateProgramDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Mental Health Support Program",
+            "description": "Name of the health program"
+          },
+          "type": {
+            "type": "string",
+            "example": "Mental Health",
+            "enum": [
+              "Mental Health",
+              "Vaccination",
+              "Diabetes",
+              "Other"
+            ],
+            "description": "Type/category of the program"
+          },
+          "description": {
+            "type": "string",
+            "example": "Comprehensive mental health support program for patients",
+            "description": "Detailed description of the program"
+          },
+          "status": {
+            "type": "string",
+            "example": "Active",
+            "enum": [
+              "Active",
+              "Inactive"
+            ],
+            "default": "Active",
+            "description": "Status of the program"
+          },
+          "sessionFreq": {
+            "type": "string",
+            "example": "weekly",
+            "enum": [
+              "daily",
+              "weekly",
+              "monthly"
+            ],
+            "default": "weekly",
+            "description": "Session frequency override for the program"
+          },
+          "components": {
+            "example": [
+              {
+                "type": "session",
+                "name": "Individual Therapy",
+                "description": "One-on-one sessions"
+              },
+              {
+                "type": "consultation",
+                "name": "Medical Consultation",
+                "description": "Regular check-ups"
+              }
+            ],
+            "description": "Program components update payload",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProgramComponentDto"
+            }
+          },
+          "medicationIds": {
+            "example": [
+              "550e8400-e29b-41d4-a716-446655440000"
+            ],
+            "description": "Array of medication UUIDs to assign to this program",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "staffIds": {
+            "example": [
+              "550e8400-e29b-41d4-a716-446655440001"
+            ],
+            "description": "Array of healthcare staff UUIDs to assign to this program",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "CreatePatientDto": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "example": "John Doe",
+            "description": "Full name of the patient"
+          },
+          "dateOfBirth": {
+            "type": "string",
+            "example": "1990-01-15",
+            "description": "Date of birth in YYYY-MM-DD format",
+            "format": "date"
+          },
+          "gender": {
+            "type": "string",
+            "example": "Male",
+            "enum": [
+              "Male",
+              "Female",
+              "Other"
+            ],
+            "description": "Gender of the patient"
+          },
+          "contactNumber": {
+            "type": "string",
+            "example": "+1234567890",
+            "description": "Contact phone number"
+          },
+          "email": {
+            "type": "string",
+            "example": "john.doe@example.com",
+            "description": "Email address of the patient"
+          },
+          "address": {
+            "type": "string",
+            "example": "123 Main Street, City, State 12345",
+            "description": "Physical address of the patient"
+          },
+          "emergencyContact": {
+            "type": "string",
+            "example": "Jane Doe - +1987654321",
+            "description": "Emergency contact information"
+          },
+          "medicalNotes": {
+            "type": "string",
+            "example": "Allergic to penicillin. History of hypertension.",
+            "description": "Medical notes and important information about the patient"
+          },
+          "status": {
+            "type": "string",
+            "example": "Active",
+            "enum": [
+              "Active",
+              "Inactive"
+            ],
+            "default": "Active",
+            "description": "Status of the patient record"
+          }
+        },
+        "required": [
+          "fullName",
+          "dateOfBirth",
+          "gender"
+        ]
+      },
+      "EnrollPatientDto": {
+        "type": "object",
+        "properties": {
+          "patientId": {
+            "type": "string",
+            "example": "550e8400-e29b-41d4-a716-446655440000",
+            "description": "UUID of the patient to enroll"
+          },
+          "programId": {
+            "type": "string",
+            "example": "550e8400-e29b-41d4-a716-446655440001",
+            "description": "UUID of the program to enroll the patient in"
+          },
+          "assignedStaffId": {
+            "type": "string",
+            "example": "550e8400-e29b-41d4-a716-446655440002",
+            "description": "UUID of the healthcare staff member to assign to this patient enrollment"
+          },
+          "enrollmentDate": {
+            "type": "string",
+            "example": "2025-03-11",
+            "description": "Date of enrollment in YYYY-MM-DD format. Defaults to current date if not provided.",
+            "format": "date"
+          }
+        },
+        "required": [
+          "patientId",
+          "programId"
+        ]
+      },
+      "UpdatePatientDto": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "example": "John Doe",
+            "description": "Full name of the patient"
+          },
+          "dateOfBirth": {
+            "type": "string",
+            "example": "1990-01-15",
+            "description": "Date of birth in YYYY-MM-DD format",
+            "format": "date"
+          },
+          "gender": {
+            "type": "string",
+            "example": "Male",
+            "enum": [
+              "Male",
+              "Female",
+              "Other"
+            ],
+            "description": "Gender of the patient"
+          },
+          "contactNumber": {
+            "type": "string",
+            "example": "+1234567890",
+            "description": "Contact phone number"
+          },
+          "email": {
+            "type": "string",
+            "example": "john.doe@example.com",
+            "description": "Email address of the patient"
+          },
+          "address": {
+            "type": "string",
+            "example": "123 Main Street, City, State 12345",
+            "description": "Physical address of the patient"
+          },
+          "emergencyContact": {
+            "type": "string",
+            "example": "Jane Doe - +1987654321",
+            "description": "Emergency contact information"
+          },
+          "medicalNotes": {
+            "type": "string",
+            "example": "Allergic to penicillin. History of hypertension.",
+            "description": "Medical notes and important information about the patient"
+          },
+          "status": {
+            "type": "string",
+            "example": "Active",
+            "enum": [
+              "Active",
+              "Inactive"
+            ],
+            "default": "Active",
+            "description": "Status of the patient record"
+          }
+        }
+      },
+      "CreateMedicationDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Sertraline",
+            "description": "Name of the medication"
+          },
+          "dosage": {
+            "type": "string",
+            "example": "50mg",
+            "description": "Dosage strength and unit"
+          },
+          "frequency": {
+            "type": "string",
+            "example": "daily",
+            "enum": [
+              "Daily",
+              "Twice Daily",
+              "Weekly",
+              "Monthly"
+            ],
+            "description": "Frequency of medication administration"
+          },
+          "status": {
+            "type": "string",
+            "example": "Active",
+            "enum": [
+              "Active",
+              "Inactive"
+            ],
+            "default": "Active",
+            "description": "Status of the medication"
+          },
+          "programIds": {
+            "example": [
+              "550e8400-e29b-41d4-a716-446655440000"
+            ],
+            "description": "Array of program UUIDs to assign this medication to",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "programType": {
+            "type": "string",
+            "example": "Mental Health",
+            "description": "Filter programs by type when assigning medication. If provided, only programs of this type will be available for assignment."
+          }
+        },
+        "required": [
+          "name",
+          "dosage",
+          "frequency"
+        ]
+      },
+      "UpdateMedicationDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Sertraline",
+            "description": "Name of the medication"
+          },
+          "dosage": {
+            "type": "string",
+            "example": "50mg",
+            "description": "Dosage strength and unit"
+          },
+          "frequency": {
+            "type": "string",
+            "example": "daily",
+            "enum": [
+              "Daily",
+              "Twice Daily",
+              "Weekly",
+              "Monthly"
+            ],
+            "description": "Frequency of medication administration"
+          },
+          "status": {
+            "type": "string",
+            "example": "Active",
+            "enum": [
+              "Active",
+              "Inactive"
+            ],
+            "default": "Active",
+            "description": "Status of the medication"
+          },
+          "programIds": {
+            "example": [
+              "550e8400-e29b-41d4-a716-446655440000"
+            ],
+            "description": "Array of program UUIDs to assign this medication to",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "programType": {
+            "type": "string",
+            "example": "Mental Health",
+            "description": "Filter programs by type when assigning medication. If provided, only programs of this type will be available for assignment."
+          }
+        }
+      },
+      "CreateDispensationDto": {
+        "type": "object",
+        "properties": {
+          "patientId": {
+            "type": "string",
+            "example": "550e8400-e29b-41d4-a716-446655440000",
+            "description": "UUID of the patient receiving the medication"
+          },
+          "medicationId": {
+            "type": "string",
+            "example": "550e8400-e29b-41d4-a716-446655440001",
+            "description": "UUID of the medication being dispensed"
+          },
+          "programId": {
+            "type": "string",
+            "example": "550e8400-e29b-41d4-a716-446655440002",
+            "description": "UUID of the program this dispensation is part of"
+          },
+          "dispensedAt": {
+            "type": "string",
+            "example": "2025-03-11T10:30:00Z",
+            "description": "ISO 8601 date-time string of when the medication was dispensed",
+            "format": "date-time"
+          },
+          "notes": {
+            "type": "string",
+            "example": "Patient advised to take with food",
+            "description": "Optional notes about the dispensation"
+          }
+        },
+        "required": [
+          "patientId",
+          "medicationId",
+          "programId",
+          "dispensedAt"
+        ]
+      },
+      "PatientAttendanceDto": {
+        "type": "object",
+        "properties": {
+          "patientId": {
+            "type": "string",
+            "example": "550e8400-e29b-41d4-a716-446655440000",
+            "description": "UUID of the patient"
+          },
+          "status": {
+            "type": "string",
+            "example": "Present",
+            "enum": [
+              "Present",
+              "Absent",
+              "Late",
+              "Excused",
+              "Canceled"
+            ],
+            "description": "Attendance status of the patient"
+          },
+          "checkInTime": {
+            "type": "string",
+            "example": "2025-03-11T10:00:00Z",
+            "description": "ISO 8601 date-time string of patient check-in time",
+            "format": "date-time"
+          },
+          "notes": {
+            "type": "string",
+            "example": "Arrived 5 minutes late",
+            "description": "Optional notes about the attendance"
+          }
+        },
+        "required": [
+          "patientId",
+          "status"
+        ]
+      },
+      "CreateAttendanceDto": {
+        "type": "object",
+        "properties": {
+          "programId": {
+            "type": "string",
+            "example": "550e8400-e29b-41d4-a716-446655440001",
+            "description": "UUID of the program for this attendance session"
+          },
+          "attendanceDate": {
+            "type": "string",
+            "example": "2025-03-11",
+            "description": "Date of the attendance session in YYYY-MM-DD format",
+            "format": "date"
+          },
+          "attendances": {
+            "example": [
+              {
+                "patientId": "550e8400-e29b-41d4-a716-446655440000",
+                "status": "Present",
+                "checkInTime": "2025-03-11T10:00:00Z",
+                "notes": "On time"
+              },
+              {
+                "patientId": "550e8400-e29b-41d4-a716-446655440003",
+                "status": "Late",
+                "checkInTime": "2025-03-11T10:15:00Z",
+                "notes": "Arrived 15 minutes late"
+              }
+            ],
+            "description": "Array of patient attendance records for this session",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PatientAttendanceDto"
+            }
+          }
+        },
+        "required": [
+          "programId",
+          "attendanceDate",
+          "attendances"
+        ]
+      },
+      "UpdateAttendanceDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "Present",
+            "enum": [
+              "Present",
+              "Absent",
+              "Late",
+              "Excused",
+              "Canceled"
+            ],
+            "description": "Updated attendance status"
+          },
+          "checkInTime": {
+            "type": "string",
+            "example": "2025-03-11T10:00:00Z",
+            "description": "Updated check-in time in ISO 8601 format",
+            "format": "date-time"
+          },
+          "notes": {
+            "type": "string",
+            "example": "Updated notes about attendance",
+            "description": "Optional notes about the attendance record"
+          }
+        }
+      }
+    }
+  }
+}

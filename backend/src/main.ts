@@ -1,16 +1,25 @@
+// Must be the first import in the application's entry point — see
+// instrument.ts's doc comment for why.
+import './instrument';
+
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, BadRequestException } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import compression from 'compression';
 import { AppModule } from './app.module';
-const compression = require('compression');
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableShutdownHooks();
-  
+
+  // Standardize every error response shape and stop unexpected exceptions
+  // (e.g. raw TypeORM driver errors) from leaking internal detail.
+  app.useGlobalFilters(new AllExceptionsFilter());
+
   // Enable gzip compression for better performance
   app.use(compression());
-  
+
   const corsOrigins = (
     process.env.CORS_ORIGIN ||
     process.env.FRONTEND_URL ||
