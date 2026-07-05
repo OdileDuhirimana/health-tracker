@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { Repository, Between, DataSource } from 'typeorm';
 import { Patient, PatientStatus } from '../../entities/patient.entity';
@@ -16,9 +17,13 @@ import { Attendance, AttendanceStatus } from '../../entities/attendance.entity';
 import { Dispensation } from '../../entities/dispensation.entity';
 import { DateUtils } from '../../common/utils/date.utils';
 import { QueryUtils } from '../../common/utils/query.utils';
+import { RedisCacheService } from '../../common/cache/redis-cache.service';
+import { DASHBOARD_CACHE_PREFIX } from '../dashboard/dashboard.service';
 
 @Injectable()
 export class PatientsService {
+  private readonly logger = new Logger(PatientsService.name);
+
   constructor(
     @InjectRepository(Patient)
     private patientRepository: Repository<Patient>,
@@ -36,6 +41,7 @@ export class PatientsService {
     private dataSource: DataSource,
     private activityLogsService: ActivityLogsService,
     private notificationsService: NotificationsService,
+    private cache: RedisCacheService,
   ) {}
 
   async generatePatientId(): Promise<string> {
@@ -165,25 +171,18 @@ export class PatientsService {
       total = totalCount;
     }
 
-    // Calculate progress and adherence for each patient (only if needed for sorting)
-    const needsProgressCalc = filters?.sortBy === 'progress' || filters?.sortBy === 'adherence';
-    let patientsWithProgress = patientData;
-
-    if (needsProgressCalc) {
-      patientsWithProgress = await Promise.all(
-        patientData.map(async (patient) => {
-          const progress = await this.calculatePatientProgress(patient.id);
-          return { ...patient, progress };
-        })
-      );
-    } else {
-      patientsWithProgress = await Promise.all(
-        patientData.map(async (patient) => {
-          const progress = await this.calculatePatientProgress(patient.id);
-          return { ...patient, progress };
-        })
-      );
-    }
+    // Progress/adherence is attached to every returned patient (the frontend
+    // patient list and card views both render it unconditionally), not just
+    // when sorting by it. A previous revision branched on `needsProgressCalc`
+    // with two identical implementations of the same `Promise.all` map on
+    // both sides — dead conditional logic that computed nothing different
+    // either way. Collapsed to the one thing it actually did.
+    const patientsWithProgress = await Promise.all(
+      patientData.map(async (patient) => {
+        const progress = await this.calculatePatientProgress(patient.id);
+        return { ...patient, progress };
+      }),
+    );
 
     if (filters?.sortBy && (filters.sortBy === 'progress' || filters.sortBy === 'adherence')) {
       patientsWithProgress.sort((a: any, b: any) => {
@@ -401,116 +400,130 @@ export class PatientsService {
 
     try {
       const patient = await queryRunner.manager.findOne(Patient, {
-      where: { id: enrollPatientDto.patientId },
-    });
+        where: { id: enrollPatientDto.patientId },
+      });
 
-    if (!patient) {
-        await queryRunner.rollbackTransaction();
-      throw new NotFoundException('Patient not found');
-    }
+      if (!patient) {
+        // Rollback happens once, in the catch block below — calling
+        // rollbackTransaction() here too would then hit an already-rolled-
+        // back transaction and throw TransactionNotStartedError, masking
+        // this intended 404 behind an unhandled 500. Just throw; the
+        // catch/finally pair below is the single place transactions end.
+        throw new NotFoundException('Patient not found');
+      }
 
       const program = await queryRunner.manager.findOne(Program, {
-      where: { id: enrollPatientDto.programId },
-      relations: ['assignedStaff'],
-    });
+        where: { id: enrollPatientDto.programId },
+        relations: ['assignedStaff'],
+      });
 
-    if (!program) {
-        await queryRunner.rollbackTransaction();
-      throw new NotFoundException('Program not found');
-    }
-
-    // Healthcare Staff can only enroll patients in programs they are assigned to
-    if (userRole === UserRole.HEALTHCARE_STAFF) {
-      const isAssignedToProgram = program.assignedStaff?.some(
-        (staff) => staff.id === userId
-      );
-      if (!isAssignedToProgram) {
-        await queryRunner.rollbackTransaction();
-        throw new ForbiddenException(
-          'You can only enroll patients in programs you are assigned to'
-        );
+      if (!program) {
+        throw new NotFoundException('Program not found');
       }
-    }
 
-    // Check if already enrolled
+      // Healthcare Staff can only enroll patients in programs they are assigned to
+      if (userRole === UserRole.HEALTHCARE_STAFF) {
+        const isAssignedToProgram = program.assignedStaff?.some(
+          (staff) => staff.id === userId
+        );
+        if (!isAssignedToProgram) {
+          throw new ForbiddenException(
+            'You can only enroll patients in programs you are assigned to'
+          );
+        }
+      }
+
+      // Check if already enrolled
       const existingEnrollment = await queryRunner.manager.findOne(PatientEnrollment, {
-      where: {
-        patientId: enrollPatientDto.patientId,
-        programId: enrollPatientDto.programId,
-      },
-    });
+        where: {
+          patientId: enrollPatientDto.patientId,
+          programId: enrollPatientDto.programId,
+        },
+      });
 
-    if (existingEnrollment) {
-        await queryRunner.rollbackTransaction();
-      throw new BadRequestException('Patient is already enrolled in this program');
-    }
+      if (existingEnrollment) {
+        throw new BadRequestException('Patient is already enrolled in this program');
+      }
 
-    // Only Admin can explicitly assign staff to patients
-    // If no staff is assigned, auto-assign from program's assigned staff
-    let assignedStaffId = enrollPatientDto.assignedStaffId;
-    
-    if (userRole !== UserRole.ADMIN && enrollPatientDto.assignedStaffId) {
-      // Healthcare Staff cannot assign other staff - clear the explicit assignment
-      assignedStaffId = undefined;
-    }
-    
-    // Auto-assign staff from program's assigned staff if not explicitly provided
-    if (!assignedStaffId && program.assignedStaff && program.assignedStaff.length > 0) {
-      // Assign the first available staff from the program
-      assignedStaffId = program.assignedStaff[0].id;
-    }
+      // Only Admin can explicitly assign staff to patients
+      // If no staff is assigned, auto-assign from program's assigned staff
+      let assignedStaffId = enrollPatientDto.assignedStaffId;
+
+      if (userRole !== UserRole.ADMIN && enrollPatientDto.assignedStaffId) {
+        // Healthcare Staff cannot assign other staff - clear the explicit assignment
+        assignedStaffId = undefined;
+      }
+
+      // Auto-assign staff from program's assigned staff if not explicitly provided
+      if (!assignedStaffId && program.assignedStaff && program.assignedStaff.length > 0) {
+        // Assign the first available staff from the program
+        assignedStaffId = program.assignedStaff[0].id;
+      }
 
       const enrollment = queryRunner.manager.create(PatientEnrollment, {
-      patientId: enrollPatientDto.patientId,
-      programId: enrollPatientDto.programId,
-      assignedStaffId: assignedStaffId,
-      enrollmentDate: enrollPatientDto.enrollmentDate || new Date(),
-    });
+        patientId: enrollPatientDto.patientId,
+        programId: enrollPatientDto.programId,
+        assignedStaffId: assignedStaffId,
+        enrollmentDate: enrollPatientDto.enrollmentDate || new Date(),
+      });
 
-      const savedEnrollment = await queryRunner.manager.save(enrollment);
+      await queryRunner.manager.save(enrollment);
 
       // Commit transaction
       await queryRunner.commitTransaction();
 
+      // A new enrollment changes dashboard aggregates (active patient
+      // counts, programs overview). Invalidated after commit, outside the
+      // transaction, same as the activity log/notification side effects
+      // below — it's a read-cache concern, not part of the write's
+      // atomicity guarantee.
+      await this.cache.invalidateByPrefix(DASHBOARD_CACHE_PREFIX);
+
       // Create activity log (non-critical, outside transaction)
       try {
-    await this.activityLogsService.create(
-      ActivityType.ENROLLMENT,
-      `Enrolled ${patient.fullName} in ${program.name}`,
-      userId,
-      { patientId: patient.id, programId: program.id },
-    );
+        await this.activityLogsService.create(
+          ActivityType.ENROLLMENT,
+          `Enrolled ${patient.fullName} in ${program.name}`,
+          userId,
+          { patientId: patient.id, programId: program.id },
+        );
       } catch (error) {
         // Activity log creation failure is non-critical
       }
 
       // Create enrollment notification (non-critical, outside transaction)
-    try {
-      await this.notificationsService.create(
-        NotificationType.ENROLLMENT,
-        'New Patient Enrolled',
-        `${patient.fullName} enrolled in ${program.name}`,
-        userId,
-        `/patients/${patient.id}`,
-      );
-      
-      // Also notify assigned staff if any
-        if (assignedStaffId) {
+      try {
         await this.notificationsService.create(
           NotificationType.ENROLLMENT,
-          'New Patient Assignment',
-          `You have been assigned to ${patient.fullName} in ${program.name}`,
-            assignedStaffId,
+          'New Patient Enrolled',
+          `${patient.fullName} enrolled in ${program.name}`,
+          userId,
           `/patients/${patient.id}`,
         );
-      }
-    } catch (error) {
-      // Notification creation failure is non-critical
-    }
 
-    return this.findOne(enrollPatientDto.patientId);
+        // Also notify assigned staff if any
+        if (assignedStaffId) {
+          await this.notificationsService.create(
+            NotificationType.ENROLLMENT,
+            'New Patient Assignment',
+            `You have been assigned to ${patient.fullName} in ${program.name}`,
+            assignedStaffId,
+            `/patients/${patient.id}`,
+          );
+        }
+      } catch (error) {
+        // Notification creation failure is non-critical
+      }
+
+      return this.findOne(enrollPatientDto.patientId);
     } catch (error) {
-      await queryRunner.rollbackTransaction();
+      // isTransactionActive guards against double-rollback: if a prior code
+      // path already committed or rolled back on this queryRunner, calling
+      // rollbackTransaction() again throws TransactionNotStartedError and
+      // would replace the real, meaningful error with a confusing one.
+      if (queryRunner.isTransactionActive) {
+        await queryRunner.rollbackTransaction();
+      }
       throw error;
     } finally {
       await queryRunner.release();
@@ -545,6 +558,7 @@ export class PatientsService {
     const program = enrollment.program;
 
     await this.enrollmentRepository.remove(enrollment);
+    await this.cache.invalidateByPrefix(DASHBOARD_CACHE_PREFIX);
 
     await this.activityLogsService.create(
       ActivityType.ENROLLMENT,
@@ -592,6 +606,7 @@ export class PatientsService {
     enrollment.completionNotes = completionNotes || null;
 
     const savedEnrollment = await this.enrollmentRepository.save(enrollment);
+    await this.cache.invalidateByPrefix(DASHBOARD_CACHE_PREFIX);
 
     await this.activityLogsService.create(
       ActivityType.ENROLLMENT,
@@ -787,7 +802,7 @@ export class PatientsService {
     // naive adherence based on last 7 days count
     const since = new Date();
     since.setDate(since.getDate() - 7);
-    const dispensed = await this.dispensationRepository.count({ where: { patientId: enrollment.patientId, programId: enrollment.programId, dispensedAt: Between(since, new Date()) } as any });
+    const dispensed = await this.dispensationRepository.count({ where: { patientId: enrollment.patientId, programId: enrollment.programId, dispensedAt: Between(since, new Date()) } });
     const adherenceRate = Math.min(100, Math.round((dispensed / 7) * 100));
 
     Object.assign(enrollment, {
@@ -798,6 +813,63 @@ export class PatientsService {
       adherenceRate,
     });
     await this.enrollmentRepository.save(enrollment);
+  }
+
+  /**
+   * Nightly batch recompute of every active enrollment's materialized
+   * progress fields (`sessionsExpected/Completed/Missed`, `attendanceRate`,
+   * `adherenceRate`).
+   *
+   * Why this exists: `recomputeProgress()` is normally called incrementally
+   * — once per affected enrollment, right after an attendance record or
+   * dispensation is written (see `AttendanceService.create/update` and this
+   * class's own `enroll()`). That keeps the materialized fields fresh for
+   * the enrollments that are actually being written to, but two things can
+   * still make them drift: (1) `adherenceRate` here is explicitly a
+   * "last 7 days" rolling window, which changes with the passage of time
+   * alone, not just new writes — an enrollment nobody has touched in a week
+   * should still see its adherence window slide forward; (2) any
+   * incremental-update code path that's missed (a future service change, a
+   * bulk data fix run directly against the database) leaves stale values
+   * with no self-correcting mechanism. A nightly full recompute is the
+   * backstop for both.
+   *
+   * This also finally exercises `@nestjs/schedule`, which was previously
+   * installed as a dependency and never actually used anywhere
+   * (`grep -rn "@Cron" src` returned nothing before this method existed) —
+   * flagged in the code review as installed-but-unused.
+   *
+   * Runs sequentially rather than with `Promise.all` deliberately: this is
+   * a batch job with no latency requirement, and bounding concurrency
+   * avoids opening one connection per enrollment simultaneously against a
+   * connection pool sized for interactive request traffic
+   * (`DB_POOL_MAX`, see `database.config.ts`). A single enrollment's
+   * failure is logged and skipped rather than aborting the whole run, so
+   * one bad row doesn't prevent every other enrollment from being
+   * refreshed.
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_2AM)
+  async nightlyRecomputeAllProgress(): Promise<void> {
+    const enrollments = await this.enrollmentRepository.find({ select: ['id'] });
+    this.logger.log(`Nightly progress recompute starting for ${enrollments.length} enrollment(s)`);
+
+    let failures = 0;
+    for (const enrollment of enrollments) {
+      try {
+        await this.recomputeProgress(enrollment.id);
+      } catch (error) {
+        failures += 1;
+        this.logger.error(
+          `Failed to recompute progress for enrollment ${enrollment.id}: ${(error as Error).message}`,
+        );
+      }
+    }
+
+    if (failures > 0) {
+      this.logger.warn(`Nightly progress recompute finished with ${failures} failure(s) out of ${enrollments.length}`);
+    } else {
+      this.logger.log(`Nightly progress recompute completed successfully for ${enrollments.length} enrollment(s)`);
+    }
   }
 }
 

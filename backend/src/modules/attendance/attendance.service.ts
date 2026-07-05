@@ -12,6 +12,8 @@ import { ActivityType } from '../../entities/activity-log.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../../entities/notification.entity';
 import { PatientsService } from '../patients/patients.service';
+import { RedisCacheService } from '../../common/cache/redis-cache.service';
+import { DASHBOARD_CACHE_PREFIX } from '../dashboard/dashboard.service';
 
 @Injectable()
 export class AttendanceService {
@@ -25,6 +27,7 @@ export class AttendanceService {
     private activityLogsService: ActivityLogsService,
     private notificationsService: NotificationsService,
     private patientsService: PatientsService,
+    private cache: RedisCacheService,
   ) {}
 
   async create(createAttendanceDto: CreateAttendanceDto, userId: string) {
@@ -53,6 +56,7 @@ export class AttendanceService {
     const attendances = this.attendanceRepository.create(attendancesPayload);
 
     const savedAttendances: Attendance[] = await this.attendanceRepository.save(attendances);
+    await this.cache.invalidateByPrefix(DASHBOARD_CACHE_PREFIX);
 
     const combos = Array.from(new Set(savedAttendances.map(a => `${a.patientId}:${a.programId}`)));
     await Promise.all(
@@ -182,6 +186,7 @@ export class AttendanceService {
     });
 
     const saved = await this.attendanceRepository.save(attendance);
+    await this.cache.invalidateByPrefix(DASHBOARD_CACHE_PREFIX);
 
     const enrollment = await this.enrollmentRepository.findOne({ where: { patientId: saved.patientId, programId: saved.programId } });
     if (enrollment) {
@@ -231,7 +236,9 @@ export class AttendanceService {
       attendance.markedById = userId;
     }
 
-    return this.attendanceRepository.save(attendances);
+    const saved = await this.attendanceRepository.save(attendances);
+    await this.cache.invalidateByPrefix(DASHBOARD_CACHE_PREFIX);
+    return saved;
   }
 
   async getStatistics(programId?: string, startDate?: string, endDate?: string, userRole?: string, userId?: string) {

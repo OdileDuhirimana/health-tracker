@@ -9,6 +9,26 @@ import { PatientEnrollment } from '../../entities/patient-enrollment.entity';
 import { UserRole } from '../../entities/user.entity';
 import { MedicationFrequency, MedicationStatus } from '../../entities/medication.entity';
 import { DateUtils } from '../../common/utils/date.utils';
+import { RedisCacheService } from '../../common/cache/redis-cache.service';
+
+/**
+ * How long a cached dashboard aggregate is served before recomputing.
+ * Short enough that a Healthcare Staff user marking attendance or a
+ * dispensation still sees it reflected within a minute even if the
+ * write-path invalidation (see DASHBOARD_CACHE_PREFIX usages in
+ * DispensationsService/AttendanceService/PatientsService) missed a code
+ * path; long enough to meaningfully reduce load from the dashboard's
+ * multiple parallel aggregate queries firing on every page load.
+ */
+const DASHBOARD_CACHE_TTL_SECONDS = 60;
+
+/**
+ * Shared key prefix so `RedisCacheService.invalidateByPrefix` can flush
+ * every cached dashboard aggregate at once from other services, without
+ * those services needing to know the individual cache keys this service
+ * generates.
+ */
+export const DASHBOARD_CACHE_PREFIX = 'dashboard:';
 
 @Injectable()
 export class DashboardService {
@@ -23,10 +43,32 @@ export class DashboardService {
     private attendanceRepository: Repository<Attendance>,
     @InjectRepository(PatientEnrollment)
     private enrollmentRepository: Repository<PatientEnrollment>,
+    private cache: RedisCacheService,
   ) {}
 
+  /**
+   * Wraps an aggregate computation with a role/user-scoped cache lookup.
+   * Every dashboard method is scoped by (role, userId) because a Healthcare
+   * Staff user's numbers are filtered to their own caseload — caching
+   * without that scope in the key would leak one user's aggregate to
+   * another.
+   */
+  private async cached<T>(method: string, userRole: string | undefined, userId: string | undefined, compute: () => Promise<T>): Promise<T> {
+    const key = `${DASHBOARD_CACHE_PREFIX}${method}:${userRole ?? 'none'}:${userId ?? 'none'}`;
+    const hit = await this.cache.get<T>(key);
+    if (hit !== null) return hit;
+
+    const value = await compute();
+    await this.cache.set(key, value, DASHBOARD_CACHE_TTL_SECONDS);
+    return value;
+  }
+
   async getMetrics(userRole?: string, userId?: string) {
-    let activePatientsQuery = this.patientRepository
+    return this.cached('metrics', userRole, userId, () => this.computeMetrics(userRole, userId));
+  }
+
+  private async computeMetrics(userRole?: string, userId?: string) {
+    const activePatientsQuery = this.patientRepository
       .createQueryBuilder('patient')
       .where('patient.status = :status', { status: PatientStatus.ACTIVE });
 
@@ -59,6 +101,10 @@ export class DashboardService {
   }
 
   async getProgramsOverview(userRole?: string, userId?: string) {
+    return this.cached('programs-overview', userRole, userId, () => this.computeProgramsOverview(userRole, userId));
+  }
+
+  private async computeProgramsOverview(userRole?: string, userId?: string) {
     const query = this.programRepository
       .createQueryBuilder('program')
       .select([
@@ -97,6 +143,10 @@ export class DashboardService {
   }
 
   async getAttendanceData(userRole?: string, userId?: string) {
+    return this.cached('attendance-data', userRole, userId, () => this.computeAttendanceData(userRole, userId));
+  }
+
+  private async computeAttendanceData(userRole?: string, userId?: string) {
     const presentQuery = this.attendanceRepository
       .createQueryBuilder('attendance')
       .where('attendance.programId IS NOT NULL')
@@ -132,6 +182,10 @@ export class DashboardService {
   }
 
   async getAdherenceRate(userRole?: string, userId?: string) {
+    return this.cached('adherence-rate', userRole, userId, () => this.computeAdherenceRate(userRole, userId));
+  }
+
+  private async computeAdherenceRate(userRole?: string, userId?: string) {
     const now = new Date();
     const sevenDaysAgo = new Date(now);
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -172,6 +226,10 @@ export class DashboardService {
   }
 
   async getProgramDurationSummary(userRole?: string, userId?: string) {
+    return this.cached('program-duration-summary', userRole, userId, () => this.computeProgramDurationSummary(userRole, userId));
+  }
+
+  private async computeProgramDurationSummary(userRole?: string, userId?: string) {
     const query = this.programRepository
       .createQueryBuilder('program')
       .leftJoinAndSelect('program.enrollments', 'enrollment')
@@ -232,6 +290,10 @@ export class DashboardService {
   }
 
   async getUpcomingDispensations(userRole?: string, userId?: string) {
+    return this.cached('upcoming-dispensations', userRole, userId, () => this.computeUpcomingDispensations(userRole, userId));
+  }
+
+  private async computeUpcomingDispensations(userRole?: string, userId?: string) {
     const query = this.dispensationRepository
       .createQueryBuilder('dispensation')
       .leftJoinAndSelect('dispensation.medication', 'medication')

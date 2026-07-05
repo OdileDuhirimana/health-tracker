@@ -14,6 +14,8 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../../entities/notification.entity';
 import { startOfDay, endOfDay, startOfMonth, endOfMonth, isToday } from 'date-fns';
 import { DateUtils } from '../../common/utils/date.utils';
+import { RedisCacheService } from '../../common/cache/redis-cache.service';
+import { DASHBOARD_CACHE_PREFIX } from '../dashboard/dashboard.service';
 
 @Injectable()
 export class DispensationsService {
@@ -26,6 +28,7 @@ export class DispensationsService {
     private enrollmentRepository: Repository<PatientEnrollment>,
     private activityLogsService: ActivityLogsService,
     private notificationsService: NotificationsService,
+    private cache: RedisCacheService,
   ) {}
 
   async create(createDispensationDto: CreateDispensationDto, userId: string) {
@@ -69,6 +72,15 @@ export class DispensationsService {
       }
       throw e;
     }
+
+    // Best-effort: a dispensation write invalidates cached dashboard/report
+    // aggregates (adherence rate, upcoming dispensations, etc.) that derive
+    // from this table, so the next read recomputes rather than serving a
+    // stale pre-dispensation snapshot. Not wrapped in the same try/catch as
+    // the notification below because a cache-invalidation failure should
+    // never mask a successful write — RedisCacheService itself fails open
+    // (logs and no-ops) rather than throwing.
+    await this.cache.invalidateByPrefix(DASHBOARD_CACHE_PREFIX);
 
     const savedDispensationFull = await this.findOne(savedDispensation.id);
 
