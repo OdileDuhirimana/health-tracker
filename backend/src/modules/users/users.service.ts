@@ -162,18 +162,5 @@ export class UsersService {
 
     return { message: 'User deleted successfully' };
   }
-
-  async assignPrograms(userId: string, programIds: string[]) {
-    const user = await this.userRepository.findOne({
-      where: { id: userId },
-      relations: ['assignedPrograms'],
-    });
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    return user;
-  }
 }
 

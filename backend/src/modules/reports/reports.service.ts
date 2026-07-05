@@ -103,7 +103,7 @@ export class ReportsService {
   }
 
   async generateMedicationReport(userRole?: string, userId?: string) {
-    let query = this.medicationRepository
+    const query = this.medicationRepository
       .createQueryBuilder('medication')
       .leftJoinAndSelect('medication.programs', 'programs')
       .select([
