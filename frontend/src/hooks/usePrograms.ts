@@ -1,5 +1,6 @@
 /** Custom hook for managing program data and operations with caching. */
 
+import { useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { programsService } from "@/services";
 import { Program, ProgramFilters } from "@/types";
@@ -133,17 +134,25 @@ export function usePrograms(filters?: ProgramFilters) {
     },
   });
 
+  // Memoized so consumers can safely list `loadPrograms` in a `useEffect`
+  // dependency array without triggering a re-render loop. Without this,
+  // a fresh closure was created on every render, which — once listed as an
+  // effect dependency (see programs/page.tsx) — caused the effect to refire
+  // on every render indefinitely: refetch() -> state update -> re-render ->
+  // new closure identity -> effect refires -> refetch() again, unbounded.
+  const loadPrograms = useCallback(async () => {
+    await refetch().catch(() => {
+      // Error handled by query
+    });
+  }, [refetch]);
+
   return {
     programs: allPrograms,
     assignedPrograms,
     pagination,
     loading: isLoading,
     error: error?.message || null,
-    loadPrograms: async () => {
-      await refetch().catch(() => {
-        // Error handled by query
-      });
-    },
+    loadPrograms,
     createProgram: createMutation.mutateAsync,
     updateProgram: (id: string, data: UpdateProgramData) =>
       updateMutation.mutateAsync({ id, data }),
