@@ -1,0 +1,296 @@
+name: CI
+
+# Runs on every push and PR so a broken build/test/lint is caught before
+# merge, not discovered later in Render's/Vercel's deploy logs. Originally
+# backend-only (path-filtered to `backend/**`), which meant the frontend's
+# lint/build health had zero automated verification — a code review flagged
+# this explicitly (176 real lint errors were sitting undetected because
+# nothing ran `npm run lint` in `frontend/` automatically). No path filters
+# are used: at this project's size, running the full backend + frontend
+# suite on every push is simpler to reason about than maintaining two
+# separately-triggered workflows or a paths-filter action, and the cost is
+# a few extra CI-minutes, not a real problem.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-lint:
+    name: Backend / Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+
+  backend-unit-tests:
+    name: Backend / Unit tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+      # Unit tests are fully isolated from Postgres (see jest.config.js) —
+      # every dependency is mocked, so this job needs no database service
+      # and stays fast. Runs with coverage (`test:cov`, not `test`) so the
+      # `coverageThreshold` configured in jest.config.js is an enforced CI
+      # gate, not just a number that happens to be true on someone's laptop.
+      - run: npm run test:cov
+
+      - name: Upload coverage summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage/coverage-summary.json
+          retention-days: 14
+
+  backend-e2e-tests:
+    name: Backend / E2E tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    # The e2e suite boots the real AppModule against a live database, so a
+    # disposable Postgres service container is required. Using the same
+    # major version as production (see backend/Dockerfile's base image
+    # lineage and render.yaml) keeps CI representative of the deployed
+    # environment rather than testing against a different engine version.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: healthtrackdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d healthtrackdb"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: development
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      DB_DATABASE: healthtrackdb
+      DB_SSL: "false"
+      JWT_SECRET: ci-test-secret-not-used-outside-this-workflow
+      JWT_EXPIRES_IN: 7d
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+
+      # Uses the CI-specific fixture seed (src/seeds/ci-seed.ts), not the
+      # full `npm run seed` — that script generates ~150 users and 100k+
+      # historical dispensation rows for realistic local development data,
+      # which takes several minutes and would make every CI run slow. The
+      # CI fixture creates only the handful of accounts and one-of-each
+      # records the e2e suite actually calls, synchronizing the schema
+      # from entities directly (no separate migration step needed for a
+      # throwaway CI database).
+      - name: Seed minimal fixture data
+        run: npm run seed:ci
+        env:
+          NODE_ENV: development
+
+      - run: npm run test:e2e
+
+  backend-migration-check:
+    name: Backend / Migration schema check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    # Runs `migration:run` against a completely empty, freshly-created
+    # Postgres — the production schema path (synchronize: false, migrations
+    # only) — and asserts the resulting schema actually contains what the
+    # application depends on. This exists because of a real bug this
+    # project shipped and only caught by deliberately simulating production:
+    # the pre-existing migrations could not run at all against a genuinely
+    # empty database (no migration had ever created the base tables — they
+    # only ever existed via `synchronize` in development), and separately,
+    # `Dispensation.bucketType`/`bucketStart` and the `uq_dispensation_bucket`
+    # constraint were never created by any migration despite the entity
+    # declaring them and the README claiming the constraint was enforced.
+    # Both are fixed now (see `1700000000000_initial_schema.ts` and
+    # `1740000000000_fix_dispensation_bucket_schema.ts`); this job exists so
+    # that class of drift can't silently reappear.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: healthtrackdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d healthtrackdb"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: production
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      DB_DATABASE: healthtrackdb
+      DB_SSL: "false"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+
+      - name: Run migrations against a genuinely empty database
+        run: npm run migration:run
+
+      - name: Verify the dispensation duplicate-prevention schema was actually created
+        env:
+          PGPASSWORD: postgres
+        run: >
+          psql -h localhost -U postgres -d healthtrackdb -v ON_ERROR_STOP=1 -c
+          "DO \$\$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'dispensations' AND column_name = 'bucketType') THEN
+              RAISE EXCEPTION 'Migration drift: dispensations.bucketType column missing after migration:run';
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'dispensations' AND column_name = 'bucketStart') THEN
+              RAISE EXCEPTION 'Migration drift: dispensations.bucketStart column missing after migration:run';
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_dispensation_bucket') THEN
+              RAISE EXCEPTION 'Migration drift: uq_dispensation_bucket constraint missing after migration:run';
+            END IF;
+          END \$\$;"
+
+  backend-build:
+    name: Backend / Build
+    runs-on: ubuntu-latest
+    needs: [backend-lint, backend-unit-tests, backend-migration-check]
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+      - run: npm run build
+
+      # Regression guard for a real bug this project shipped: without
+      # tsconfig.build.json, `nest build` compiled test files alongside
+      # source, which shifted TypeScript's inferred root and nested output
+      # under dist/src/ instead of dist/ — meaning `node dist/main`, exactly
+      # what `npm run start:prod` and Render's configured start command run,
+      # would fail with MODULE_NOT_FOUND. This check fails loudly if that
+      # ever regresses, instead of only being discovered at deploy time.
+      - name: Verify dist/main.js exists at the path start:prod expects
+        run: test -f dist/main.js
+
+  frontend-lint:
+    name: Frontend / Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+
+  frontend-tests:
+    name: Frontend / Unit tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - run: npm run test
+
+  frontend-build:
+    name: Frontend / Build
+    runs-on: ubuntu-latest
+    needs: [frontend-lint, frontend-tests]
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      # `next build` prerenders pages in a NODE_ENV=production process. This
+      # placeholder value only needs to be a syntactically valid URL — it is
+      # never actually called during a build — but it must be *present*,
+      # since api-client.ts's production-fallback check now runs lazily at
+      # request time (not at module load, which used to crash this exact
+      # build step — see api-client.ts's doc comment) and this confirms the
+      # build succeeds the same way a real Vercel build (which does have
+      # this var set) does.
+      NEXT_PUBLIC_API_URL: https://ci-placeholder.example.com
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - run: npm run build

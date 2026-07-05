@@ -48,6 +48,33 @@ services:
         value: https://vitals-zeta.vercel.app
       - key: CORS_ORIGIN
         value: https://vitals-zeta.vercel.app
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: vitals-careops-cache
+          property: connectionString
+      - key: SENTRY_DSN
+        # Optional error tracking — `sync: false` means Render will not set
+        # a value from this blueprint; set it manually in the Render
+        # dashboard after creating a Sentry project, or leave unset (the
+        # app runs identically without it, see backend/src/instrument.ts).
+        sync: false
+
+  - type: keyvalue
+    name: vitals-careops-cache
+    # Render's Key Value (Redis-compatible) offering has no free tier, unlike
+    # the Postgres database above — this is a deliberate, disclosed cost
+    # tradeoff for a portfolio deployment. The application does not require
+    # this to function: RedisThrottlerStorage (backend/src/common/throttler)
+    # falls back to per-instance in-memory rate limiting whenever REDIS_URL
+    # is unset, so removing this block (and the REDIS_URL env var above)
+    # degrades rate-limit enforcement to single-instance-only rather than
+    # breaking the deployment.
+    plan: starter
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: allow the API service to connect (Render Key Value instances are only reachable from within Render's private network by default; this is not exposed to the public internet)
 
 databases:
   - name: vitals-careops-db
