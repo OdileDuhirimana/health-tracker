@@ -36,19 +36,24 @@ export class NotificationsService {
   }
 
   async findAll(userId: string, filters?: { read?: boolean; limit?: number }) {
+    // Intentionally returns a bare array, not a `{ data, pagination }`
+    // envelope: notifications are a small, inherently bounded per-user list
+    // (bell-icon dropdown, not a paginated table view), and the frontend
+    // consumes this response as a flat array directly. The `limit` cap
+    // (default 50, hard-capped at 100 below) is the real defense against an
+    // unbounded query here, not page-based navigation — see
+    // DispensationsService.findAll / NotificationsService for the
+    // page-based pagination pattern used on genuine list/table endpoints.
+    const limit = Math.min(filters?.limit || 50, 100);
+
     const query = this.notificationRepository
       .createQueryBuilder('notification')
       .where('notification.userId = :userId', { userId })
-      .orderBy('notification.timestamp', 'DESC');
+      .orderBy('notification.timestamp', 'DESC')
+      .limit(limit);
 
     if (filters?.read !== undefined) {
       query.andWhere('notification.read = :read', { read: filters.read });
-    }
-
-    if (filters?.limit) {
-      query.limit(filters.limit);
-    } else {
-      query.limit(50);
     }
 
     return query.getMany();

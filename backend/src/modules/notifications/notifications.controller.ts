@@ -1,5 +1,5 @@
 import { Controller, Get, Patch, Delete, Param, Body, UseGuards, Query } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { NotificationsService } from './notifications.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/user.decorator';
@@ -13,6 +13,8 @@ export class NotificationsController {
 
   @Get()
   @ApiOperation({ summary: 'Get all notifications for user', description: 'Get all notifications for the current user' })
+  @ApiQuery({ name: 'read', required: false, type: Boolean, description: 'Filter by read status' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Max items to return (default: 50, max: 100)' })
   @ApiResponse({ status: 200, description: 'Notifications retrieved successfully' })
   findAll(
     @CurrentUser() user: any,
@@ -21,7 +23,7 @@ export class NotificationsController {
   ) {
     return this.notificationsService.findAll(user.userId, {
       read: read === 'true' ? true : read === 'false' ? false : undefined,
-      limit: limit ? parseInt(limit) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
     });
   }
 

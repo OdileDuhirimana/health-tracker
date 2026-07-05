@@ -1,12 +1,45 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, HttpCode, HttpStatus, ServiceUnavailableException } from '@nestjs/common';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 
+/**
+ * Health check endpoint used by Docker HEALTHCHECK and the Render
+ * `healthCheckPath` deployment gate (see backend/Dockerfile, render.yaml).
+ *
+ * Why a real DB ping: this app has no meaningful functionality without
+ * PostgreSQL. A health check that always returns `ok` regardless of
+ * database state would let an orchestrator keep routing traffic to an
+ * instance that can't serve any real request — the single most common
+ * failure mode for this service. Running `SELECT 1` is a cheap,
+ * side-effect-free way to prove the connection pool is actually usable,
+ * not just that the process is alive.
+ */
 @Controller('health')
 export class HealthController {
+  constructor(
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
+  ) {}
+
   @Get()
-  getHealth() {
+  @HttpCode(HttpStatus.OK)
+  async getHealth() {
+    const timestamp = new Date().toISOString();
+
+    try {
+      await this.dataSource.query('SELECT 1');
+    } catch (error) {
+      throw new ServiceUnavailableException({
+        status: 'error',
+        timestamp,
+        database: 'unreachable',
+      });
+    }
+
     return {
       status: 'ok',
-      timestamp: new Date().toISOString(),
+      timestamp,
+      database: 'connected',
     };
   }
 }

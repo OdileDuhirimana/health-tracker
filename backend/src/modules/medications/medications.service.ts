@@ -119,7 +119,12 @@ export class MedicationsService {
     let total: number;
     if (userRole === 'Healthcare Staff' && userId && medicationIds) {
       total = medicationIds.length;
-      const [data] = await query
+      // `getMany()` resolves to the full result array — unlike
+      // `getManyAndCount()` below, it does not return a `[data, count]`
+      // tuple. A prior version of this branch destructured it as `[data]`,
+      // which silently discarded every row past the first for any
+      // Healthcare Staff user with more than one matching medication.
+      const data = await query
         .orderBy('medication.createdAt', 'DESC')
         .skip(skip)
         .take(limitNum)
