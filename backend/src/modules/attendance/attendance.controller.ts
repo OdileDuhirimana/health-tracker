@@ -123,7 +123,7 @@ export class AttendanceController {
       id: update.id,
       status: update.status as AttendanceStatus
     }));
-    return this.attendanceService.bulkUpdate(body.programId, body.attendanceDate, updatesWithStatus, user.userId);
+    return this.attendanceService.bulkUpdate(body.programId, body.attendanceDate, updatesWithStatus, user.userId, user.role);
   }
 
   @Delete(':id')

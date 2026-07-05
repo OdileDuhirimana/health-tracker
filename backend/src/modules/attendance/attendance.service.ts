@@ -196,17 +196,39 @@ export class AttendanceService {
     attendanceDate: string,
     updates: Array<{ id: string; status: AttendanceStatus }>,
     userId: string,
+    userRole?: string,
   ) {
     const attendances = await this.attendanceRepository.find({
       where: { programId, attendanceDate: new Date(attendanceDate) },
     });
 
+    // The single-record `update()` above enforces that a Healthcare Staff
+    // user can only modify attendance for patients assigned to them; this
+    // bulk endpoint previously had no equivalent check at all, despite being
+    // reachable by the same role (see AttendanceController — both
+    // `@Roles(ADMIN, HEALTHCARE_STAFF)`), letting a staff user bulk-mutate
+    // attendance for any patient in the program regardless of assignment.
+    let assignedPatientIds: Set<string> | null = null;
+    if (userRole === UserRole.HEALTHCARE_STAFF) {
+      const assignedEnrollments = await this.enrollmentRepository.find({
+        where: { programId, assignedStaffId: userId },
+      });
+      assignedPatientIds = new Set(assignedEnrollments.map((e) => e.patientId));
+    }
+
     for (const update of updates) {
       const attendance = attendances.find((a) => a.id === update.id);
-      if (attendance) {
-        attendance.status = update.status;
-        attendance.markedById = userId;
+      if (!attendance) continue;
+      if (assignedPatientIds && !assignedPatientIds.has(attendance.patientId)) {
+        // Silently skip rather than throw: a bulk request legitimately
+        // mixing assigned and unassigned patients (e.g. a staff member's
+        // client sent the whole program's roster) should still apply to the
+        // records the caller is actually allowed to touch, not fail the
+        // entire batch over one out-of-scope row.
+        continue;
       }
+      attendance.status = update.status;
+      attendance.markedById = userId;
     }
 
     return this.attendanceRepository.save(attendances);
