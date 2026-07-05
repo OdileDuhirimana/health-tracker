@@ -4,43 +4,42 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { patientsService, dispensationsService, attendanceService } from "@/services";
-import { Patient } from "@/types";
+import { Attendance, Dispensation, Patient, PatientEnrollment } from "@/types";
 import { useToast } from "@/components/Toast";
+import { normalizeListResponse } from "@/utils/api";
 
 export function usePatientDetails(patientId: string) {
   const [patient, setPatient] = useState<Patient | null>(null);
-  const [programs, setPrograms] = useState<any[]>([]);
-  const [medications, setMedications] = useState<any[]>([]);
-  const [attendance, setAttendance] = useState<any[]>([]);
+  const [programs, setPrograms] = useState<PatientEnrollment[]>([]);
+  const [medications, setMedications] = useState<Dispensation[]>([]);
+  const [attendance, setAttendance] = useState<Attendance[]>([]);
   const [loading, setLoading] = useState(true);
   const { notify } = useToast();
 
   const loadPatientDetails = useCallback(async () => {
     if (!patientId) return;
-    
+
     setLoading(true);
     try {
       const patientResponse = await patientsService.getById(patientId);
       if (patientResponse.data) {
         setPatient(patientResponse.data);
         setPrograms(patientResponse.data.enrollments || []);
-        
+
         // Load medication history
         const medsResponse = await dispensationsService.getAll({ patientId });
         if (medsResponse.data) {
           setMedications(medsResponse.data);
         }
-        
+
         // Load attendance history
         const attResponse = await attendanceService.getAll({});
         if (attResponse.data) {
-          const attendanceArray = Array.isArray(attResponse.data) 
-            ? attResponse.data 
-            : attResponse.data.data || [];
-          setAttendance(attendanceArray.filter((a: any) => a.patientId === patientId));
+          const attendanceArray = normalizeListResponse<Attendance>(attResponse.data);
+          setAttendance(attendanceArray.filter((a) => a.patientId === patientId));
         }
       }
-    } catch (error: any) {
+    } catch {
       setPatient(null);
       setPrograms([]);
       setMedications([]);
@@ -69,7 +68,7 @@ export function usePatientDetails(patientId: string) {
     } finally {
       setLoading(false);
     }
-  }, [patientId, loadPatientDetails]); // Removed notify from dependencies
+  }, [patientId, loadPatientDetails, notify]);
 
   return {
     patient,

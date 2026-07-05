@@ -4,7 +4,7 @@
  */
 
 import { apiRequest, buildQueryString } from "./api-client";
-import { DashboardMetrics, ProgramOverview, AttendanceData, AdherenceData } from "@/types";
+import { ActivityLogEntry, DashboardMetrics, ProgramOverview, AttendanceData, AdherenceData } from "@/types";
 import { PaginatedResponse } from "@/types";
 
 export const dashboardService = {
@@ -41,7 +41,7 @@ export const dashboardService = {
   }) => {
     const queryString = filters ? buildQueryString(filters) : "";
     const endpoint = queryString ? `/activity-logs?${queryString}` : "/activity-logs";
-    return apiRequest<PaginatedResponse<any>>(endpoint);
+    return apiRequest<PaginatedResponse<ActivityLogEntry>>(endpoint);
   },
 
   /**

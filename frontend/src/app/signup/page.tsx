@@ -69,7 +69,7 @@ export default function SignupPage() {
       // Allow user to select Healthcare Staff or Guest role (Admin cannot be selected)
       await signup(formData.email, formData.password, formData.name, formData.role);
     } catch (err) {
-      let errorMessage = err instanceof Error ? err.message : "Registration failed. Please try again.";
+      const errorMessage = err instanceof Error ? err.message : "Registration failed. Please try again.";
       
       // Handle backend role validation errors
       if (errorMessage.includes("Admin") || errorMessage.includes("Invalid role")) {

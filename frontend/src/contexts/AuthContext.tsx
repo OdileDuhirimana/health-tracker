@@ -13,12 +13,16 @@ type User = {
 
 type AuthContextType = {
   user: User | null;
-  login: (email: string, password: string, role: string, remember?: boolean) => Promise<void>;
+  login: (email: string, password: string, remember?: boolean) => Promise<void>;
   signup: (email: string, password: string, name: string, role: string) => Promise<void>;
   logout: () => void;
   updateUser: (user: User) => void;
   loading: boolean;
 };
+
+/** Session token lifetime used when "Remember me" is checked vs. not. */
+const REMEMBER_ME_TOKEN_TTL = "30d";
+const SESSION_TOKEN_TTL = "1d";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -65,20 +69,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           }
         }
-      } catch (error) {
+      } catch {
         tokenStorage.clearAll();
       }
     }
     setLoading(false);
   }, []);
 
-  const login = async (email: string, password: string, role: string = "", remember = false) => {
+  const login = async (email: string, password: string, remember = false) => {
     setLoading(true);
     try {
       const { authApi } = await import("@/lib/api");
       // Login without role - backend determines role from user account
       const response = await authApi.login(email, password);
-      
+
       if (response.data) {
         const { user: apiUser, access_token } = response.data;
         const userData = {
@@ -87,9 +91,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           name: apiUser.name || email.split("@")[0],
           role: (apiUser.role || "Guest") as User["role"],
         };
-        
-        // Store token securely
-        tokenStorage.setToken(access_token, "7d"); // 7 days expiry
+
+        // Store token securely. Honor "remember me": a longer-lived token
+        // when checked, a short session-only token otherwise.
+        tokenStorage.setToken(access_token, remember ? REMEMBER_ME_TOKEN_TTL : SESSION_TOKEN_TTL);
         tokenStorage.setUserData(userData);
         
         // Legacy support - clear old storage

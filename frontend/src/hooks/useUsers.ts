@@ -1,9 +1,10 @@
 /** Custom hook for managing user data and operations. */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { usersService } from "@/services";
 import { User } from "@/types";
 import { useToast } from "@/components/Toast";
+import { extractPagination, normalizeListResponse } from "@/utils/api";
 
 interface UserFilters {
   search?: string;
@@ -11,7 +12,12 @@ interface UserFilters {
   limit?: number;
 }
 
-export function useUsers(filters?: UserFilters) {
+export interface UpdateUserData extends Partial<User> {
+  password?: string;
+  programIds?: string[];
+}
+
+export function useUsers(filtersProp?: UserFilters) {
   const [users, setUsers] = useState<User[]>([]);
   const [pagination, setPagination] = useState<{
     page: number;
@@ -23,24 +29,28 @@ export function useUsers(filters?: UserFilters) {
   const [error, setError] = useState<string | null>(null);
   const { notify } = useToast();
 
+  // Stabilize identity across renders based on the underlying primitives so
+  // `filters` can be depended on directly below without re-running on every
+  // render when the caller passes a freshly-created object literal.
+  const searchParam = filtersProp?.search;
+  const pageParam = filtersProp?.page;
+  const limitParam = filtersProp?.limit;
+  const filters: UserFilters | undefined = useMemo(
+    () =>
+      searchParam === undefined && pageParam === undefined && limitParam === undefined
+        ? undefined
+        : { search: searchParam, page: pageParam, limit: limitParam },
+    [searchParam, pageParam, limitParam]
+  );
+
   const loadUsers = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const response = await usersService.getAll(filters);
       if (response.data) {
-        // Handle paginated response: { data: [...], pagination: {...} }
-        if (response.data.data && Array.isArray(response.data.data)) {
-          setUsers(response.data.data);
-          setPagination(response.data.pagination || null);
-        } else if (Array.isArray(response.data)) {
-          // Legacy: direct array response
-          setUsers(response.data);
-          setPagination(null);
-        } else {
-          setUsers([]);
-          setPagination(null);
-        }
+        setUsers(normalizeListResponse<User>(response.data));
+        setPagination(extractPagination<User>(response.data));
       } else if (response.error) {
         setError(response.error);
         notify(response.error, "error");
@@ -50,7 +60,7 @@ export function useUsers(filters?: UserFilters) {
         setUsers([]);
         setPagination(null);
       }
-    } catch (error) {
+    } catch {
       const errorMessage = "Failed to load users";
       setError(errorMessage);
       notify(errorMessage, "error");
@@ -59,7 +69,7 @@ export function useUsers(filters?: UserFilters) {
     } finally {
       setLoading(false);
     }
-  }, [filters?.search, filters?.page, filters?.limit]); // Use primitive values
+  }, [filters, notify]);
 
   useEffect(() => {
     loadUsers();
@@ -80,9 +90,9 @@ export function useUsers(filters?: UserFilters) {
     } finally {
       setLoading(false);
     }
-  }, [loadUsers]); // Removed notify
+  }, [loadUsers, notify]);
 
-  const updateUser = useCallback(async (id: string, data: Partial<User>) => {
+  const updateUser = useCallback(async (id: string, data: UpdateUserData) => {
     setLoading(true);
     try {
       const response = await usersService.update(id, data);
@@ -97,7 +107,7 @@ export function useUsers(filters?: UserFilters) {
     } finally {
       setLoading(false);
     }
-  }, [loadUsers]); // Removed notify
+  }, [loadUsers, notify]);
 
   const deleteUser = useCallback(async (id: string) => {
     setLoading(true);
@@ -113,7 +123,7 @@ export function useUsers(filters?: UserFilters) {
     } finally {
       setLoading(false);
     }
-  }, [loadUsers]); // Removed notify
+  }, [loadUsers, notify]);
 
   return {
     users,

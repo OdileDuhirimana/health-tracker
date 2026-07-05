@@ -33,7 +33,7 @@ export const usersService = {
   /**
    * Update user
    */
-  update: (id: string, data: Partial<User>) =>
+  update: (id: string, data: Partial<User> & { password?: string; programIds?: string[] }) =>
     apiRequest<User>(`/users/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),

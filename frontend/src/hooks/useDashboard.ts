@@ -2,10 +2,10 @@
  * Custom hook for fetching and managing dashboard data.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { dashboardService, programsService } from "@/services";
-import { DashboardMetrics, ProgramOverview, AttendanceData, AdherenceData } from "@/types";
-import { useToast } from "@/components/Toast";
+import { DashboardMetrics, Program, ProgramOverview, AdherenceData } from "@/types";
+import { normalizeListResponse } from "@/utils/api";
 
 export function useDashboard() {
   const [metrics, setMetrics] = useState<DashboardMetrics>({
@@ -36,7 +36,6 @@ export function useDashboard() {
     status: 'due_today' | 'overdue';
   }>>([]);
   const [loading, setLoading] = useState(true);
-  const { notify } = useToast();
 
   const loadDashboardData = useCallback(async () => {
     setLoading(true);
@@ -57,24 +56,17 @@ export function useDashboard() {
       const programsOverviewResponse = await dashboardService.getProgramsOverview();
       if (programsOverviewResponse.data && programsOverviewResponse.data.length > 0) {
         setProgramData(
-          programsOverviewResponse.data.map((p: any) => ({
+          programsOverviewResponse.data.map((p) => ({
             name: p.name || "",
             patients: p.patients || 0,
           }))
         );
       } else {
         const programsResponse = await programsService.getAll();
-        let programsArray: any[] = [];
-        if (programsResponse.data) {
-          if (Array.isArray(programsResponse.data)) {
-            programsArray = programsResponse.data;
-          } else if (programsResponse.data.data && Array.isArray(programsResponse.data.data)) {
-            programsArray = programsResponse.data.data;
-          }
-        }
-        if (Array.isArray(programsArray) && programsArray.length > 0) {
+        const programsArray = normalizeListResponse<Program>(programsResponse.data);
+        if (programsArray.length > 0) {
           const programCounts: Record<string, number> = {};
-          programsArray.forEach((program: any) => {
+          programsArray.forEach((program) => {
             const type = program.type || "Other";
             programCounts[type] = (programCounts[type] || 0) + (program.enrollments?.length || 0);
           });
@@ -119,7 +111,7 @@ export function useDashboard() {
       if (upcomingDispensationsResponse.data) {
         setUpcomingDispensations(upcomingDispensationsResponse.data);
       }
-    } catch (error: any) {
+    } catch {
       setProgramData([
         { name: "Mental", patients: 5 },
         { name: "Diabetes", patients: 5 },

@@ -6,21 +6,37 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { dispensationsService, patientsService, programsService, medicationsService } from "@/services";
 import { useToast } from "@/components/Toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { Dispensation, Medication, Patient, Program } from "@/types";
+import { normalizeListResponse } from "@/utils/api";
 
-interface DispensationRecord {
-  id: string;
-  patientId: string;
-  programId: string;
-  medicationId: string;
-  patientName: string;
-  program: string;
-  medication: string;
-  dosage: string;
-  schedule: string;
-  lastDispensed: string;
-  nextDue: string;
-  status: "Dispensed" | "Pending" | "Overdue";
-  recentlyDispensed: boolean;
+/**
+ * Raw shape returned by `/dispensations/tracking-table`. Some deployments
+ * of the backend send shortened keys (a payload-size optimization); this
+ * hook normalizes either form into the full field names the UI expects.
+ */
+interface DispensationTrackingRawItem {
+  pId?: string;
+  patientId?: string;
+  pName?: string;
+  patientName?: string;
+  mId?: string;
+  medicationId?: string;
+  mName?: string;
+  medicationName?: string;
+  d?: string;
+  dosage?: string;
+  f?: string;
+  frequency?: string;
+  prId?: string;
+  programId?: string;
+  prName?: string;
+  programName?: string;
+  lc?: string;
+  lastCollected?: string;
+  nd?: string;
+  nextDue?: string;
+  ar?: number;
+  adherenceRate?: number;
 }
 
 export function useDispensations() {
@@ -39,11 +55,9 @@ export function useDispensations() {
       if (response.error) {
         throw new Error(response.error);
       }
-      const patientsArray = Array.isArray(response.data)
-        ? response.data
-        : response.data?.data || [];
-      return patientsArray.map((p: any) => ({
-        id: p.id || p.patientId,
+      const patientsArray = normalizeListResponse<Patient>(response.data);
+      return patientsArray.map((p) => ({
+        id: p.id || p.patientId || "",
         name: p.fullName || p.name,
       }));
     },
@@ -60,10 +74,8 @@ export function useDispensations() {
       if (response.error) {
         throw new Error(response.error);
       }
-      const programsArray = Array.isArray(response.data)
-        ? response.data
-        : response.data?.data || [];
-      return programsArray.map((p: any) => ({
+      const programsArray = normalizeListResponse<Program>(response.data);
+      return programsArray.map((p) => ({
         id: p.id,
         name: p.name,
         medications: p.medications || [],
@@ -83,18 +95,8 @@ export function useDispensations() {
       if (response.error) {
         throw new Error(response.error);
       }
-      // Handle paginated response: { data: [...], pagination: {...} }
-      // or direct array
-      let medicationsArray: any[] = [];
-      if (Array.isArray(response.data)) {
-        medicationsArray = response.data;
-      } else if (response.data?.data && Array.isArray(response.data.data)) {
-        medicationsArray = response.data.data;
-      } else if (response.data && typeof response.data === 'object' && !response.data.data) {
-        // If response.data is an object but not paginated, might be a single item
-        medicationsArray = [response.data];
-      }
-      return medicationsArray.map((m: any) => ({
+      const medicationsArray = normalizeListResponse<Medication>(response.data);
+      return medicationsArray.map((m) => ({
         id: m.id,
         name: m.name,
         dosage: m.dosage,
@@ -117,10 +119,10 @@ export function useDispensations() {
       if (response.error) {
         throw new Error(response.error);
       }
-      const dispensationsArray = Array.isArray(response.data) ? response.data : [];
-      
+      const dispensationsArray = normalizeListResponse<Dispensation>(response.data);
+
       if (dispensationsArray.length > 0) {
-        return dispensationsArray.map((disp: any) => {
+        return dispensationsArray.map((disp) => {
           const dispensedDate = disp.dispensedAt ? new Date(disp.dispensedAt) : new Date();
           const isToday = dispensedDate.toDateString() === new Date().toDateString();
           const isYesterday = dispensedDate.toDateString() === new Date(Date.now() - 86400000).toDateString();
@@ -196,31 +198,23 @@ export function useDispensations() {
       if (response.error) {
         throw new Error(response.error);
       }
-      // Handle paginated or array response
-      let dataArray: any[] = [];
-      if (response.data) {
-        if (Array.isArray(response.data)) {
-          dataArray = response.data;
-        } else if (response.data.data && Array.isArray(response.data.data)) {
-          dataArray = response.data.data;
-        }
-      }
+      const dataArray = normalizeListResponse<DispensationTrackingRawItem>(response.data);
       // Map shortened keys back to full keys for frontend compatibility
       return {
-        data: dataArray.map((item: any) => ({
-          patientId: item.pId || item.patientId,
-          patientName: item.pName || item.patientName,
-          medicationId: item.mId || item.medicationId,
-          medicationName: item.mName || item.medicationName,
-          dosage: item.d || item.dosage,
-          frequency: item.f || item.frequency,
-          programId: item.prId || item.programId,
-          programName: item.prName || item.programName,
-          lastCollected: item.lc || item.lastCollected,
-          nextDue: item.nd || item.nextDue,
-          adherenceRate: item.ar || item.adherenceRate,
+        data: dataArray.map((item) => ({
+          patientId: item.pId || item.patientId || "",
+          patientName: item.pName || item.patientName || "Unknown Patient",
+          medicationId: item.mId || item.medicationId || "",
+          medicationName: item.mName || item.medicationName || "Unknown Medication",
+          dosage: item.d || item.dosage || "",
+          frequency: item.f || item.frequency || "",
+          programId: item.prId || item.programId || "",
+          programName: item.prName || item.programName || "Unknown Program",
+          lastCollected: item.lc || item.lastCollected || null,
+          nextDue: item.nd || item.nextDue || null,
+          adherenceRate: item.ar || item.adherenceRate || 0,
         })),
-        pagination: response.data?.pagination,
+        pagination: response.data && !Array.isArray(response.data) ? response.data.pagination : undefined,
       };
     },
   });

@@ -12,6 +12,11 @@ export interface User {
   name: string;
   role: UserRole;
   assignedPrograms?: Program[];
+  createdAt?: string;
+  // Some "assigned staff" join responses (e.g. Program.assignedStaff) key
+  // the underlying user by `userId` instead of `id`; kept optional here so
+  // consumers can match on either without resorting to `any`.
+  userId?: string;
 }
 
 export interface AuthResponse {
@@ -24,6 +29,17 @@ export interface ApiResponse<T> {
   data?: T;
   error?: string;
   message?: string;
+}
+
+/**
+ * Shape of a JSON error payload returned by the backend for non-2xx
+ * responses. `message` may be a single string (most endpoints) or an
+ * array of strings (class-validator style aggregated validation errors).
+ */
+export interface ApiErrorPayload {
+  message?: string | string[];
+  error?: string;
+  statusCode?: number;
 }
 
 export interface PaginatedResponse<T> {
@@ -62,8 +78,16 @@ export interface PatientEnrollment {
   enrollmentDate: string;
   assignedStaffId?: string;
   completionDate?: string;
+  // Target end date, computed as enrollmentDate + program.durationInDays.
+  completedDate?: string;
+  endDate?: string;
+  adherenceRate?: number;
+  attendanceRate?: number;
+  isCompleted?: boolean;
+  completionNotes?: string;
   status: "active" | "completed" | "cancelled";
   program?: Program;
+  assignedStaff?: User;
 }
 
 export interface PatientProgress {
@@ -85,6 +109,12 @@ export interface Program {
   status: "Active" | "Inactive";
   totalPatients?: number;
   createdAt?: string;
+  duration?: number;
+  durationUnit?: "days" | "weeks" | "months";
+  durationInDays?: number;
+  // Computed by the backend on some endpoints to indicate the requesting
+  // (Healthcare Staff) user is assigned to this program.
+  isAssigned?: boolean;
   medications?: Medication[];
   assignedStaff?: User[];
   enrollments?: PatientEnrollment[];
@@ -104,6 +134,10 @@ export interface Medication {
   programType: string;
   status: "Active" | "Inactive";
   programIds?: string[];
+  createdAt?: string;
+  // Populated by the backend on endpoints that join the
+  // medication <-> program many-to-many relation.
+  programs?: Program[];
 }
 
 export interface Dispensation {
@@ -113,6 +147,27 @@ export interface Dispensation {
   medicationId: string;
   dispensedAt: string;
   notes?: string;
+  // The backend joins these relations on list/detail endpoints; not present
+  // on write payloads (create/update requests only send the *Id fields).
+  patient?: {
+    id: string;
+    fullName?: string;
+    name?: string;
+  };
+  program?: {
+    id: string;
+    name: string;
+  };
+  medication?: {
+    id: string;
+    name: string;
+    dosage?: string;
+    frequency?: string;
+  };
+  dispensedBy?: {
+    id: string;
+    name: string;
+  };
 }
 
 // Attendance Types
@@ -208,5 +263,118 @@ export interface ProgramFilters {
   status?: string;
   page?: number;
   limit?: number;
+}
+
+// Activity Log Types
+export type ActivityType =
+  | "enrollment"
+  | "medication"
+  | "attendance"
+  | "program"
+  | "user"
+  | "session";
+
+export interface ActivityLogEntry {
+  id: string;
+  type: ActivityType | string;
+  description: string;
+  userId?: string;
+  user?: string;
+  userEmail?: string;
+  timestamp: string | Date;
+  createdAt?: string;
+  metadata?: Record<string, unknown>;
+}
+
+// Notification Types
+export type NotificationType =
+  | "medication"
+  | "session"
+  | "enrollment"
+  | "alert"
+  | "attendance";
+
+export interface Notification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  read: boolean;
+  link?: string;
+  userId?: string;
+  timestamp: string | Date;
+  createdAt?: string;
+}
+
+// Enrollment Types
+export interface EnrollPatientData {
+  enrollmentDate?: string;
+  assignedStaffId?: string;
+}
+
+// Report Types
+/**
+ * Row shape used for the CSV "patient progress" export. Two producers feed
+ * this: the raw `/reports/patient` backend endpoint (which only returns
+ * id/name/email/program/enrollmentDate/status) and a richer, derived object
+ * built client-side from `Patient.progress` on the Patients page. The
+ * progress-related fields are therefore optional since not every producer
+ * populates them.
+ */
+export interface PatientProgressExportRow {
+  id: string;
+  name: string;
+  email?: string;
+  program?: string;
+  enrollmentDate?: string;
+  sessionsCompleted?: number;
+  sessionsMissed?: number;
+  attendanceRate?: number;
+  medicationsDispensed?: number;
+  adherenceRate?: number;
+  status?: string;
+}
+
+export interface PatientReportRow {
+  id: string;
+  name: string;
+  email: string;
+  program: string;
+  enrollmentDate: string;
+  status: string;
+}
+
+export interface ProgramReportRow {
+  "Program Name": string;
+  Type: string;
+  "Total Patients": number;
+  Status: string;
+  "Created Date": string;
+}
+
+export interface MedicationReportRow {
+  Medication: string;
+  Dosage: string;
+  Frequency: string;
+  "Assigned Programs": string;
+  Status: string;
+}
+
+export interface AttendanceReportRow {
+  Date: string;
+  Program: string;
+  Scheduled: number;
+  Attended: number;
+  Missed: number;
+  "Attendance Rate": string;
+}
+
+export interface UserReportRow {
+  Name: string;
+  Email: string;
+  Role: string;
+  "Assigned Programs": string;
+  Status: string;
+  Created: string;
 }
 

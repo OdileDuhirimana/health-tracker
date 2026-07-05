@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { medicationsService } from "@/services";
 import { Medication } from "@/types";
 import { useToast } from "@/components/Toast";
+import { normalizeListResponse } from "@/utils/api";
 
 export function useMedications(search?: string, filters?: { page?: number; limit?: number }) {
   const [medications, setMedications] = useState<Medication[]>([]);
@@ -17,13 +18,7 @@ export function useMedications(search?: string, filters?: { page?: number; limit
     try {
       const response = await medicationsService.getAll(search, filters);
       if (response.data) {
-        let medicationsArray: Medication[] = [];
-        if (Array.isArray(response.data)) {
-          medicationsArray = response.data;
-        } else if (response.data?.data && Array.isArray(response.data.data)) {
-          medicationsArray = response.data.data;
-        }
-        setMedications(medicationsArray);
+        setMedications(normalizeListResponse<Medication>(response.data));
       } else if (response.error) {
         setError(response.error);
         notify(response.error, "error");
@@ -31,7 +26,7 @@ export function useMedications(search?: string, filters?: { page?: number; limit
       } else {
         setMedications([]);
       }
-    } catch (error) {
+    } catch {
       const errorMessage = "Failed to load medications";
       setError(errorMessage);
       notify(errorMessage, "error");

@@ -10,10 +10,9 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ClipboardDocumentListIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/components/Toast";
 import { PageHeader, SearchBar } from "@/components/ui/PageHeader";
 import { MedicationForm } from "@/components/forms/MedicationForm";
-import { ProgramForm } from "@/components/forms/ProgramForm";
+import { ProgramForm, ProgramFormSubmitData } from "@/components/forms/ProgramForm";
 import Button from "@/components/ui/Button";
 import EmptyState from "@/components/EmptyState";
 import { usePrograms } from "@/hooks/usePrograms";
@@ -23,7 +22,7 @@ import { AssignedProgramsTable } from "@/features/programs/components/AssignedPr
 import { ProgramFilters } from "@/features/programs/components/ProgramFilters";
 import { ProgramDetailsPanel } from "@/features/programs/components/ProgramDetailsPanel";
 import { Pagination } from "@/components/ui/Pagination";
-import { Program, Medication } from "@/types";
+import { Program } from "@/types";
 import { programsService } from "@/services";
 import { useDebounce } from "@/hooks/useDebounce";
 
@@ -31,8 +30,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 export default function ProgramsPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const { notify } = useToast();
-  
+
   // State management
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
@@ -80,7 +78,7 @@ export default function ProgramsPage() {
     if (user) {
       loadPrograms();
     }
-  }, [user]);
+  }, [user, loadPrograms]);
 
   // Handlers
   const handleAddMedication = async (data: { name: string; dosage: string; frequency: string; programType: string }) => {
@@ -89,44 +87,44 @@ export default function ProgramsPage() {
       setAddMedicationOpen(false);
       // Redirect to medications page to view all medications
       router.push("/medications");
-    } catch (error) {
+    } catch {
       // Error handled by hook
     }
   };
 
-  const handleAddProgram = async (data: any) => {
+  const handleAddProgram = async (data: ProgramFormSubmitData) => {
     try {
       await createProgram({
         name: data.name,
         type: data.type,
         description: data.description,
-        sessionFreq: data.sessionFreq || data.sessionFrequency,
+        sessionFreq: data.sessionFreq,
         medicationIds: data.medicationIds || [],
         staffIds: data.staffIds || [],
         components: data.components || [],
-      } as any);
+      });
       setAddOpen(false);
-    } catch (error) {
+    } catch {
       // Error handled by hook
     }
   };
 
-  const handleEditProgram = async (data: any) => {
+  const handleEditProgram = async (data: ProgramFormSubmitData) => {
     if (!selectedProgram) return;
-    
+
     try {
       await updateProgram(selectedProgram.id, {
         name: data.name,
         type: data.type,
         description: data.description,
-        sessionFreq: data.sessionFreq || data.sessionFrequency,
+        sessionFreq: data.sessionFreq,
         medicationIds: data.medicationIds || [],
         staffIds: data.staffIds || [],
         components: data.components || [],
-      } as any);
+      });
       setEditOpen(false);
       setSelectedProgram(null);
-    } catch (error) {
+    } catch {
       // Error handled by hook
     }
   };
@@ -135,7 +133,7 @@ export default function ProgramsPage() {
     if (!confirm("Are you sure you want to delete this program?")) return;
     try {
       await deleteProgram(id);
-    } catch (error) {
+    } catch {
       // Error handled by hook
     }
   };
@@ -150,7 +148,7 @@ export default function ProgramsPage() {
         setSelectedProgram(program);
         setDetailsOpen(true);
       }
-    } catch (error) {
+    } catch {
       setSelectedProgram(program);
       setDetailsOpen(true);
     }
@@ -207,7 +205,6 @@ export default function ProgramsPage() {
               query={query}
               onTypeFilterChange={setTypeFilter}
               onStatusFilterChange={setStatusFilter}
-              onQueryChange={setQuery}
               onClear={clearFilters}
             />
           }
@@ -319,10 +316,10 @@ export default function ProgramsPage() {
           type: selectedProgram.type,
           description: selectedProgram.description,
           sessionFreq: selectedProgram.sessionFrequency,
-          medications: selectedProgram.medications?.map((m: any) => typeof m === 'string' ? m : m.id) || [],
-          components: (selectedProgram as any).components || [],
-          staffIds: selectedProgram.assignedStaff?.map((s: any) => typeof s === 'string' ? s : s.id) || [],
-        } as any : undefined}
+          medications: selectedProgram.medications?.map((m) => m.id) || [],
+          components: selectedProgram.components || [],
+          staffIds: selectedProgram.assignedStaff?.map((s) => s.id) || [],
+        } : undefined}
       />
 
       <ProgramDetailsPanel

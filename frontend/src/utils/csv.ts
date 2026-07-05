@@ -1,7 +1,21 @@
-export function downloadCSV(filename: string, rows: Record<string, any>[]) {
+import { PatientProgressExportRow } from "@/types";
+
+/**
+ * Export an array of flat, JSON-serializable rows to a downloaded CSV file.
+ *
+ * Generic over `T extends object` (rather than a `Record<string, ...>`
+ * shape) so callers can pass any report-row interface — including the
+ * Title Case-keyed report types in `@/types` — without needing an explicit
+ * index signature. The header row is derived from whatever keys are
+ * present on the first row.
+ */
+export function downloadCSV<T extends object>(filename: string, rows: T[]) {
   if (!rows.length) return;
-  const headers = Object.keys(rows[0]);
-  const csv = [headers.join(","), ...rows.map((r) => headers.map((h) => JSON.stringify(r[h] ?? "")).join(","))].join("\n");
+  const headers = Object.keys(rows[0]) as (keyof T)[];
+  const csv = [
+    headers.join(","),
+    ...rows.map((r) => headers.map((h) => JSON.stringify(r[h] ?? "")).join(",")),
+  ].join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -11,7 +25,7 @@ export function downloadCSV(filename: string, rows: Record<string, any>[]) {
   URL.revokeObjectURL(url);
 }
 
-export function exportPatientProgress(patients: any[]) {
+export function exportPatientProgress(patients: PatientProgressExportRow[]) {
   const rows = patients.map((p) => ({
     "Patient ID": p.id || "",
     "Name": p.name || "",

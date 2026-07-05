@@ -9,7 +9,6 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { UserPlusIcon, CheckCircleIcon, ClipboardDocumentCheckIcon } from "@heroicons/react/24/outline";
-import { PillIcon } from "@/components/ui/PillIcon";
 import { PageHeader, SearchBar } from "@/components/ui/PageHeader";
 import { FilterSelect } from "@/components/ui/FilterSelect";
 import { Card } from "@/components/ui/Card";

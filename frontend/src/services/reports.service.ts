@@ -4,6 +4,13 @@
  */
 
 import { apiRequest, buildQueryString } from "./api-client";
+import {
+  AttendanceReportRow,
+  MedicationReportRow,
+  PatientReportRow,
+  ProgramReportRow,
+  UserReportRow,
+} from "@/types";
 
 export const reportsService = {
   /**
@@ -11,33 +18,33 @@ export const reportsService = {
    */
   getPatientReport: (filters?: { programId?: string; startDate?: string; endDate?: string }) => {
     const queryString = filters ? buildQueryString(filters) : "";
-    return apiRequest<any[]>(`/reports/patient?${queryString}`);
+    return apiRequest<PatientReportRow[]>(`/reports/patient?${queryString}`);
   },
-  
+
   /**
    * Get program report
    */
   getProgramReport: (filters?: { startDate?: string; endDate?: string }) => {
     const queryString = filters ? buildQueryString(filters) : "";
-    return apiRequest<any[]>(`/reports/program?${queryString}`);
+    return apiRequest<ProgramReportRow[]>(`/reports/program?${queryString}`);
   },
-  
+
   /**
    * Get medication report
    */
-  getMedicationReport: () => apiRequest<any[]>("/reports/medication"),
-  
+  getMedicationReport: () => apiRequest<MedicationReportRow[]>("/reports/medication"),
+
   /**
    * Get attendance report
    */
   getAttendanceReport: (filters?: { programId?: string; startDate?: string; endDate?: string }) => {
     const queryString = filters ? buildQueryString(filters) : "";
-    return apiRequest<any[]>(`/reports/attendance?${queryString}`);
+    return apiRequest<AttendanceReportRow[]>(`/reports/attendance?${queryString}`);
   },
-  
+
   /**
    * Get user report
    */
-  getUserReport: () => apiRequest<any[]>("/reports/user"),
+  getUserReport: () => apiRequest<UserReportRow[]>("/reports/user"),
 };
 

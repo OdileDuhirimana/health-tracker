@@ -3,16 +3,16 @@
 import { ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import { Card } from "@/components/ui/Card";
 
-interface BarChartProps {
+interface BarChartProps<T extends { name: string }> {
   title: string;
-  data: Array<{ name: string; [key: string]: string | number }>;
+  data: T[];
   dataKey: string;
   height?: number;
   color?: string;
   label?: string;
 }
 
-export function BarChart({ title, data, dataKey, height = 256, color = "#0066cc", label }: BarChartProps) {
+export function BarChart<T extends { name: string }>({ title, data, dataKey, height = 256, color = "#0066cc", label }: BarChartProps<T>) {
   return (
     <Card>
       <div className="p-5">

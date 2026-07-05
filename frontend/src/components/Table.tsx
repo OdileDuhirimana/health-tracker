@@ -1,14 +1,13 @@
-/** Reusable table component with optional striped rows. */
+/** Reusable table component. Pass `striped` to `TBody` for striped rows. */
 import clsx from "clsx";
 import React from "react";
 
 interface TableProps {
   children: React.ReactNode;
   className?: string;
-  striped?: boolean;
 }
 
-export function Table({ children, className, striped = false }: TableProps) {
+export function Table({ children, className }: TableProps) {
   return (
     <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
       <table className={clsx("min-w-full divide-y divide-gray-200", className)}>

@@ -78,7 +78,7 @@ export default function Calendar({ events = [], onDateSelect }: { events?: Calen
               <div className="text-xs font-medium">{format(day, "d")}</div>
               {dayEvents.length > 0 && (
                 <div className="flex gap-0.5 justify-center mt-0.5">
-                  {dayEvents.slice(0, 3).map((e, idx) => (
+                  {dayEvents.slice(0, 3).map((e) => (
                     <div
                       key={e.id}
                       className={`h-1 w-1 rounded-full ${

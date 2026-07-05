@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { FormField, FormSelect, FormTextarea, FormActions } from "@/components/ui/FormField";
 import Modal from "@/components/ui/Modal";
 import { Attendance, AttendanceStatus } from "@/types";
@@ -22,13 +22,18 @@ export function EditAttendanceForm({
 }: EditAttendanceFormProps) {
   const [status, setStatus] = useState<AttendanceStatus>(record?.status || "Present");
   const [notes, setNotes] = useState(record?.notes || "");
-
-  useEffect(() => {
+  // Tracks which `record` prop reference the fields above were last
+  // initialized from. Re-deriving this during render (instead of a
+  // useEffect that calls setState) avoids an extra render pass — see
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-state-based-on-a-prop-change
+  const [prevRecord, setPrevRecord] = useState(record);
+  if (record !== prevRecord) {
+    setPrevRecord(record);
     if (record) {
       setStatus(record.status);
       setNotes(record.notes || "");
     }
-  }, [record]);
+  }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

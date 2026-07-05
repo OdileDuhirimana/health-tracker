@@ -1,23 +1,36 @@
 /** Form component for creating and editing medications. */
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { FormField, FormInput, FormSelect, FormActions } from "@/components/ui/FormField";
 import Modal from "@/components/ui/Modal";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { programsApi } from "@/lib/api";
+import { Program } from "@/types";
+import { normalizeListResponse } from "@/utils/api";
+
+// Stable, module-level reference used as the default for the `programs`
+// prop. A fresh `[]` literal as an inline default parameter value would be
+// re-created on every render whenever the caller omits the prop, which
+// defeats the `initialPrograms !== prevInitialPrograms` reference check
+// below (it would see a "new" array every render and loop forever, tripping
+// React's "Too many re-renders" guard). A single shared constant keeps the
+// reference stable across renders when no `programs` prop is supplied.
+const EMPTY_PROGRAMS: Array<{ id: string; name: string; type: string }> = [];
+
+export interface MedicationFormSubmitData {
+  name: string;
+  dosage: string;
+  frequency: string;
+  programType: string;
+  assignedProgramIds?: string[];
+  status?: "Active" | "Inactive";
+}
 
 interface MedicationFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: { 
-    name: string; 
-    dosage: string; 
-    frequency: string; 
-    programType: string;
-    assignedProgramIds?: string[];
-    status?: "Active" | "Inactive";
-  }) => Promise<void>;
+  onSubmit: (data: MedicationFormSubmitData) => Promise<void>;
   programs?: Array<{ id: string; name: string; type: string }>;
   loading?: boolean;
   initialValues?: {
@@ -30,60 +43,73 @@ interface MedicationFormProps {
   };
 }
 
-export function MedicationForm({ open, onClose, onSubmit, programs: initialPrograms = [], loading = false, initialValues }: MedicationFormProps) {
+export function MedicationForm({ open, onClose, onSubmit, programs: initialPrograms = EMPTY_PROGRAMS, loading = false, initialValues }: MedicationFormProps) {
   const [selectedProgramType, setSelectedProgramType] = useState(initialValues?.programType || "");
   const [allPrograms, setAllPrograms] = useState<Array<{ id: string; name: string; type: string }>>(initialPrograms);
 
-  // Update programs when initialPrograms changes
-  useEffect(() => {
+  // Sync `allPrograms` when the `programs` prop changes. Derived during
+  // render (rather than in a useEffect that calls setState) to avoid the
+  // extra render pass a set-state-in-effect pattern would cause — see
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-state-based-on-a-prop-change
+  const [prevInitialPrograms, setPrevInitialPrograms] = useState(initialPrograms);
+  if (initialPrograms !== prevInitialPrograms) {
+    setPrevInitialPrograms(initialPrograms);
     if (initialPrograms && initialPrograms.length > 0) {
       setAllPrograms(initialPrograms);
     }
-  }, [initialPrograms]);
+  }
 
-  // Update selectedProgramType when initialValues changes
-  useEffect(() => {
+  // Sync `selectedProgramType` when the modal opens or `initialValues`
+  // changes, for the same reason as above.
+  const [prevSyncKey, setPrevSyncKey] = useState({ open, programType: initialValues?.programType });
+  if (open !== prevSyncKey.open || initialValues?.programType !== prevSyncKey.programType) {
+    setPrevSyncKey({ open, programType: initialValues?.programType });
     if (initialValues?.programType && open) {
       setSelectedProgramType(initialValues.programType);
     } else if (open && !initialValues) {
       setSelectedProgramType("");
     }
-  }, [initialValues?.programType, open]);
+  }
 
-  // Load programs from backend when modal opens if not provided
-  useEffect(() => {
-    if (open && allPrograms.length === 0) {
-      loadPrograms();
-    }
-  }, [open]);
-
-  // Filter programs based on selected program type
-  const programs = selectedProgramType
-    ? allPrograms.filter(p => p.type === selectedProgramType)
-    : allPrograms;
-
-  const loadPrograms = async () => {
+  const loadPrograms = useCallback(async () => {
     try {
       const response = await programsApi.getAll();
       if (response.data) {
-        let programsData: any[] = [];
-        if (Array.isArray(response.data)) {
-          programsData = response.data;
-        } else if (response.data?.data && Array.isArray(response.data.data)) {
-          programsData = response.data.data;
-        }
+        const programsData = normalizeListResponse<Program>(response.data);
         // Transform to the format needed by the form
-        const formattedPrograms = programsData.map((p: any) => ({
+        const formattedPrograms = programsData.map((p) => ({
           id: p.id,
           name: p.name,
           type: p.type,
         }));
         setAllPrograms(formattedPrograms);
       }
-    } catch (error) {
+    } catch {
       // Keep empty array on error
     }
-  };
+  }, []);
+
+  // Load programs from backend when modal opens if not provided. Fetches
+  // inline (rather than a bare call to the extracted loader) so this reads
+  // as a standard "fetch on dependency change" effect per
+  // https://react.dev/learn/you-might-not-need-an-effect#fetching-data
+  useEffect(() => {
+    if (open && allPrograms.length === 0) {
+      let cancelled = false;
+      (async () => {
+        await loadPrograms();
+        if (cancelled) return;
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [open, allPrograms.length, loadPrograms]);
+
+  // Filter programs based on selected program type
+  const programs = selectedProgramType
+    ? allPrograms.filter(p => p.type === selectedProgramType)
+    : allPrograms;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -158,7 +184,7 @@ export function MedicationForm({ open, onClose, onSubmit, programs: initialProgr
 
         {selectedProgramType && programs.length === 0 && allPrograms.length > 0 && (
           <div className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-3">
-            No programs found for the selected program type "{selectedProgramType}". You can still create the medication and assign it to programs later.
+            No programs found for the selected program type &quot;{selectedProgramType}&quot;. You can still create the medication and assign it to programs later.
           </div>
         )}
 

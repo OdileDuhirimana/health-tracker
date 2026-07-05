@@ -2,20 +2,12 @@
  * Custom hook for fetching and managing activity logs.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { dashboardService } from "@/services";
-import { useToast } from "@/components/Toast";
+import { ActivityLogEntry, PaginatedResponse } from "@/types";
+import { normalizeListResponse, extractPagination } from "@/utils/api";
 
-export interface Activity {
-  id: string;
-  type: string;
-  description: string;
-  user?: string;
-  userEmail?: string;
-  timestamp: Date | string;
-  createdAt?: string;
-  metadata?: Record<string, any>;
-}
+export type Activity = ActivityLogEntry;
 
 interface ActivityFilters {
   type?: string;
@@ -24,6 +16,14 @@ interface ActivityFilters {
   search?: string;
   page?: number;
   limit?: number;
+}
+
+/** Fills in the display `timestamp` field from `createdAt` when needed. */
+function withDisplayTimestamp(entry: ActivityLogEntry): Activity {
+  return {
+    ...entry,
+    timestamp: entry.createdAt || entry.timestamp || new Date(),
+  };
 }
 
 export function useActivityLog(filtersOrLimit?: ActivityFilters | number) {
@@ -35,121 +35,72 @@ export function useActivityLog(filtersOrLimit?: ActivityFilters | number) {
     totalPages: number;
   } | null>(null);
   const [loading, setLoading] = useState(true);
-  const { notify } = useToast();
 
-  // Convert parameter to filters object
-  const filters: ActivityFilters = typeof filtersOrLimit === 'number' 
-    ? { limit: filtersOrLimit }
-    : (filtersOrLimit || { limit: 10 });
+  // Convert parameter to filters object. Memoized on the underlying
+  // primitives (rather than on `filtersOrLimit` itself) so the resulting
+  // object has a stable identity across renders unless a value actually
+  // changes — this lets effects/callbacks below safely depend on `filters`
+  // without re-running on every render.
+  const isNumberParam = typeof filtersOrLimit === "number";
+  const limitParam = isNumberParam ? filtersOrLimit : filtersOrLimit?.limit ?? 10;
+  const pageParam = isNumberParam ? undefined : filtersOrLimit?.page;
+  const typeParam = isNumberParam ? undefined : filtersOrLimit?.type;
+  const userIdParam = isNumberParam ? undefined : filtersOrLimit?.userId;
+  const dateParam = isNumberParam ? undefined : filtersOrLimit?.date;
+  const searchParam = isNumberParam ? undefined : filtersOrLimit?.search;
 
-  useEffect(() => {
-    let isMounted = true;
-    let timeoutId: NodeJS.Timeout;
-    
-    const loadActivities = async () => {
-      setLoading(true);
-      
-      timeoutId = setTimeout(() => {
-        if (isMounted) {
-          setLoading(false);
-          setActivities([]);
-        }
-      }, 10000); // 10 second timeout
-      
-      try {
-        const response = await dashboardService.getRecentActivity(filters);
-        
-        clearTimeout(timeoutId); // Clear timeout on success
-        
-        if (!isMounted) return; // Prevent state update if unmounted
-        
-        if (response.data) {
-          // Handle paginated response: { data: [...], pagination: {...} }
-          if (response.data.data && Array.isArray(response.data.data)) {
-            const activitiesArray = response.data.data;
-            
-            setActivities(
-              activitiesArray.map((a: any) => ({
-                ...a,
-                timestamp: a.createdAt || a.timestamp || new Date(),
-              }))
-            );
-            setPagination(response.data.pagination || null);
-          } else if (Array.isArray(response.data)) {
-            // Legacy: direct array response
-            setActivities(
-              response.data.map((a: any) => ({
-                ...a,
-                timestamp: a.createdAt || a.timestamp || new Date(),
-              }))
-            );
-            setPagination(null);
-          } else {
-            setActivities([]);
-            setPagination(null);
-          }
-        } else if (response.error) {
-          setActivities([]);
-          setPagination(null);
-        } else {
-          // No data and no error - set empty
-          setActivities([]);
-          setPagination(null);
-        }
-      } catch (error) {
-        clearTimeout(timeoutId);
-        if (isMounted) {
-          setActivities([]);
-          setPagination(null);
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    loadActivities();
-    
-    return () => {
-      isMounted = false;
-      clearTimeout(timeoutId);
-    };
-  }, [filters?.limit, filters?.page, filters?.type, filters?.userId, filters?.date, filters?.search]); // Depend on filter primitives
+  const filters: ActivityFilters = useMemo(
+    () => ({
+      limit: limitParam,
+      page: pageParam,
+      type: typeParam,
+      userId: userIdParam,
+      date: dateParam,
+      search: searchParam,
+    }),
+    [limitParam, pageParam, typeParam, userIdParam, dateParam, searchParam]
+  );
 
   const loadActivities = useCallback(async () => {
     setLoading(true);
     try {
       const response = await dashboardService.getRecentActivity(filters);
       if (response.data) {
-        if (response.data.data && Array.isArray(response.data.data)) {
-          setActivities(
-            response.data.data.map((a: any) => ({
-              ...a,
-              timestamp: a.createdAt || a.timestamp || new Date(),
-            }))
-          );
-          setPagination(response.data.pagination || null);
-        } else if (Array.isArray(response.data)) {
-          setActivities(
-            response.data.map((a: any) => ({
-              ...a,
-              timestamp: a.createdAt || a.timestamp || new Date(),
-            }))
-          );
-          setPagination(null);
-        } else {
-          setActivities([]);
-          setPagination(null);
-        }
+        const raw: PaginatedResponse<ActivityLogEntry> | ActivityLogEntry[] = response.data;
+        setActivities(normalizeListResponse(raw).map(withDisplayTimestamp));
+        setPagination(extractPagination(raw));
+      } else {
+        setActivities([]);
+        setPagination(null);
       }
-    } catch (error) {
+    } catch {
       setActivities([]);
       setPagination(null);
     } finally {
       setLoading(false);
     }
   }, [filters]);
+
+  useEffect(() => {
+    let isMounted = true;
+    // Guard against a slow/hanging request leaving the UI stuck in a
+    // loading state indefinitely.
+    const timeoutId = setTimeout(() => {
+      if (isMounted) {
+        setLoading(false);
+        setActivities([]);
+      }
+    }, 10000);
+
+    loadActivities().finally(() => {
+      clearTimeout(timeoutId);
+    });
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timeoutId);
+    };
+  }, [loadActivities]);
 
   return {
     activities,
@@ -158,4 +109,3 @@ export function useActivityLog(filtersOrLimit?: ActivityFilters | number) {
     loadActivities,
   };
 }
-

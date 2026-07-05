@@ -5,15 +5,15 @@ import { ResponsiveContainer, LineChart as RechartsLineChart, Line, XAxis, YAxis
 // Export with different name to avoid conflict
 import { Card } from "@/components/ui/Card";
 
-interface LineChartProps {
+interface LineChartProps<T extends { name: string }> {
   title: string;
-  data: Array<{ name: string; [key: string]: string | number }>;
+  data: T[];
   dataKey: string;
   height?: number;
   color?: string;
 }
 
-export function LineChart({ title, data, dataKey, height = 256, color = "#0066cc" }: LineChartProps) {
+export function LineChart<T extends { name: string }>({ title, data, dataKey, height = 256, color = "#0066cc" }: LineChartProps<T>) {
   return (
     <Card>
       <div className="p-5">

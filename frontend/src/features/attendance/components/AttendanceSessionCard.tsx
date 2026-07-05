@@ -53,7 +53,7 @@ export function AttendanceSessionCard({ session, onStatusChange, onMarkAllPresen
             )}
           </div>
         </div>
-        {session.patients.map((patient: any, j: number) => (
+        {session.patients.map((patient, j: number) => (
           <div
             key={patient.id || j}
             className="p-3 text-sm grid grid-cols-5 gap-2 items-center border-b border-gray-200 text-gray-700 last:border-b-0 hover:bg-gray-50 transition-colors"

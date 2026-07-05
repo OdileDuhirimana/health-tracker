@@ -211,7 +211,7 @@ export default function DashboardPage() {
         <Suspense fallback={<LoadingSkeleton className="h-64" />}>
         <LineChart
           title="Adherence Rate (Last 7 Days)"
-          data={adherenceData as any}
+          data={adherenceData}
           dataKey="rate"
         />
         </Suspense>
@@ -226,7 +226,7 @@ export default function DashboardPage() {
       <Suspense fallback={<LoadingSkeleton className="h-64" />}>
       <BarChart
         title="Programs Overview"
-        data={programData as any}
+        data={programData}
         dataKey="patients"
         label="Patients"
       />

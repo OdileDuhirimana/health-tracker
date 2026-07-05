@@ -8,7 +8,7 @@ import Badge from "@/components/Badge";
 import { LoadingSkeleton } from "@/components/LoadingSkeleton";
 import { format, isPast, isToday, isTomorrow } from "date-fns";
 
-interface TrackingRecord {
+export interface TrackingRecord {
   patientId: string;
   patientName: string;
   medicationId: string;

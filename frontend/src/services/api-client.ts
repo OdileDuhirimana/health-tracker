@@ -1,6 +1,43 @@
-import { ApiResponse } from "@/types";
+import { ApiErrorPayload, ApiResponse } from "@/types";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+/**
+ * Resolve the backend API base URL.
+ *
+ * In development/test, falling back to the local backend is convenient and
+ * safe. In production, silently falling back to localhost would mean a
+ * misconfigured deployment (missing NEXT_PUBLIC_API_URL) quietly points at
+ * a developer's machine instead of the real API — failing every request in
+ * a confusing way. We fail fast and loud instead.
+ *
+ * Deliberately called lazily, at request time, from within `apiRequest()` —
+ * NOT evaluated once at module load. `next build` evaluates this module
+ * (transitively, via any page/layout that imports a service built on
+ * `apiRequest`) while prerendering pages, in a `NODE_ENV=production`
+ * process that has no reason to have `NEXT_PUBLIC_API_URL` set (that env
+ * var is only guaranteed present in an actual deployment's build/runtime
+ * environment, e.g. Vercel). Throwing eagerly at module load previously
+ * crashed `next build` itself for anyone building locally, in CI, or in any
+ * environment without that var set — a worse failure than the one this
+ * check exists to prevent. Deferring the check to actual request time means
+ * the build succeeds, and the loud failure still happens the moment the
+ * deployed app tries to make its first real API call with a missing
+ * configuration — which is the scenario this is actually guarding against.
+ */
+function resolveApiBaseUrl(): string {
+  const configuredUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (configuredUrl) {
+    return configuredUrl;
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "NEXT_PUBLIC_API_URL is not set. This environment variable is required in production " +
+        "and must point to the deployed backend API URL."
+    );
+  }
+
+  return "http://localhost:3001";
+}
 
 /**
  * Core API request function with authentication and error handling
@@ -39,7 +76,7 @@ export async function apiRequest<T>(
       }
     }
     
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    const response = await fetch(`${resolveApiBaseUrl()}${endpoint}`, {
       ...options,
       headers: {
         "Content-Type": "application/json",
@@ -48,20 +85,20 @@ export async function apiRequest<T>(
       },
     });
 
-    let data;
+    let data: T | ApiErrorPayload;
     const contentType = response.headers.get("content-type");
     if (contentType && contentType.includes("application/json")) {
-      data = await response.json();
+      data = (await response.json()) as T | ApiErrorPayload;
     } else {
       const text = await response.text();
       data = { message: text || `HTTP error! status: ${response.status}` };
     }
 
     if (!response.ok) {
-      return await handleErrorResponse(response, data, token);
+      return await handleErrorResponse(response, data as ApiErrorPayload, token);
     }
 
-    return { data };
+    return { data: data as T };
   } catch (error) {
     return handleNetworkError(error);
   }
@@ -72,23 +109,26 @@ export async function apiRequest<T>(
  */
 async function handleErrorResponse(
   response: Response,
-  data: any,
+  data: ApiErrorPayload,
   token: string | null
 ): Promise<ApiResponse<never>> {
-  let errorMessage = data.message || data.error || `HTTP error! status: ${response.status}`;
-  
-  // Handle validation errors (400)
-  if (response.status === 400) {
-    if (Array.isArray(data.message)) {
-      errorMessage = data.message.join(", ");
-    } else if (typeof data.message === 'string') {
-      errorMessage = data.message;
-    }
-    if (data.message?.includes("Admin") || data.message?.includes("role")) {
-      errorMessage = data.message;
-    }
+  // `message` from the backend may be a single string (most endpoints) or
+  // an array of strings (class-validator aggregated validation errors).
+  // Normalize to a single displayable string up front so the rest of this
+  // function can work with a plain `string | undefined`.
+  const normalizedMessage = Array.isArray(data.message)
+    ? data.message.join(", ")
+    : data.message;
+
+  let errorMessage =
+    normalizedMessage || data.error || `HTTP error! status: ${response.status}`;
+
+  // Handle validation errors (400) - surface the backend's message verbatim
+  // (e.g. role/permission validation errors) rather than a generic fallback.
+  if (response.status === 400 && normalizedMessage) {
+    errorMessage = normalizedMessage;
   }
-  
+
   // Handle unauthorized errors (401) - token expired or invalid
   if (response.status === 401) {
     if (typeof window !== "undefined") {
@@ -101,12 +141,12 @@ async function handleErrorResponse(
         }
       }
     }
-    errorMessage = data.message || "Session expired. Please login again.";
+    errorMessage = normalizedMessage || "Session expired. Please login again.";
   }
-  
+
   // Handle conflict errors (409) - like email already exists
   if (response.status === 409) {
-    errorMessage = data.message || "This email is already registered.";
+    errorMessage = normalizedMessage || "This email is already registered.";
   }
 
   return { error: errorMessage };
@@ -127,13 +167,18 @@ function handleNetworkError(error: unknown): ApiResponse<never> {
 }
 
 /**
- * Build query string from filters object
+ * Build a URL query string from a filters object.
+ *
+ * Generic over `T extends object` (rather than a `Record<string, ...>`
+ * shape) so the various filter interfaces (`PatientFilters`,
+ * `ProgramFilters`, etc.) can be passed directly without needing an
+ * explicit index signature.
  */
-export function buildQueryString(filters: Record<string, any>): string {
+export function buildQueryString<T extends object>(filters: T): string {
   const params = new URLSearchParams();
   Object.entries(filters).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== "") {
-      params.append(key, value.toString());
+      params.append(key, String(value));
     }
   });
   return params.toString();

@@ -23,13 +23,13 @@ export default function ForgotPasswordPage() {
         
         <h1 className="text-3xl font-bold mb-2 text-gray-900">Forgot Password</h1>
         <p className="text-sm text-gray-600 mb-8">
-          Enter your email address and we'll send you instructions to reset your password.
+          Enter your email address and we&apos;ll send you instructions to reset your password.
         </p>
 
         {submitted ? (
           <div className="space-y-4">
             <div className="p-4 rounded-lg bg-green-50 border border-green-200 text-green-800 text-sm font-medium">
-              If an account exists with that email, we've sent password reset instructions.
+              If an account exists with that email, we&apos;ve sent password reset instructions.
             </div>
             <Link
               href="/login"

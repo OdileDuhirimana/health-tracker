@@ -20,6 +20,7 @@ import { usePatientEnrollment } from "@/hooks/usePatientEnrollment";
 import { PatientProfileHeader } from "@/features/patients/components/PatientProfileHeader";
 import { PatientTabs } from "@/features/patients/components/PatientTabs";
 import { QuickEnrollmentForm } from "@/components/forms/QuickEnrollmentForm";
+import { isValidUuid } from "@/utils/validation";
 
 export default function PatientDetailsPage() {
   const params = useParams();
@@ -27,13 +28,10 @@ export default function PatientDetailsPage() {
   const { user } = useAuth();
   const { notify } = useToast();
   const patientId = params.id as string;
-  
-  // UUID validation
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  
+
   // Validate patientId on mount
   useEffect(() => {
-    if (patientId && !uuidRegex.test(patientId)) {
+    if (patientId && !isValidUuid(patientId)) {
       notify("Invalid Patient ID in URL. Redirecting to patients list.", "error");
       router.push("/patients");
     }
@@ -65,7 +63,7 @@ export default function PatientDetailsPage() {
       setCompleteModalOpen(false);
       setCompleteNotes("");
       setCompletingProgramId(null);
-    } catch (error) {
+    } catch {
       // Error handled by hook
     }
   };
@@ -85,7 +83,7 @@ export default function PatientDetailsPage() {
       );
       setQuickEnrollOpen(false);
       await loadPatientDetails();
-    } catch (error) {
+    } catch {
       // Error handled by hook
     }
   };
@@ -185,7 +183,7 @@ export default function PatientDetailsPage() {
         onClose={() => setQuickEnrollOpen(false)}
         onSubmit={handleQuickEnroll}
         patientId={patientId}
-        existingProgramIds={programs.map((p: any) => p.programId || p.program?.id).filter(Boolean)}
+        existingProgramIds={programs.map((p) => p.programId || p.program?.id).filter((id): id is string => Boolean(id))}
         loading={enrollingLoading}
       />
     </>

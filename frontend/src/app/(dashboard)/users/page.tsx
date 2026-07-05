@@ -73,7 +73,7 @@ export default function UsersPage() {
         programIds: data.programIds,
       });
       setAddOpen(false);
-    } catch (error) {
+    } catch {
       // Error handled by hook
     }
   };
@@ -81,7 +81,7 @@ export default function UsersPage() {
   const handleEditUser = async (data: { name: string; email: string; password?: string; role: string; programIds?: string[] }) => {
     if (!selectedUser) return;
     try {
-      const updateData: any = {
+      const updateData: Partial<User> & { password?: string; programIds?: string[] } = {
         name: data.name,
         email: data.email,
         role: data.role as "Admin" | "Healthcare Staff" | "Guest",
@@ -95,7 +95,7 @@ export default function UsersPage() {
       await updateUser(selectedUser.id, updateData);
       setEditOpen(false);
       setSelectedUser(null);
-    } catch (error) {
+    } catch {
       // Error handled by hook
     }
   };
@@ -104,7 +104,7 @@ export default function UsersPage() {
     if (!confirm(`Are you sure you want to delete this user?`)) return;
     try {
       await deleteUser(id);
-    } catch (error) {
+    } catch {
       // Error handled by hook
     }
   };
@@ -190,7 +190,7 @@ export default function UsersPage() {
           name: selectedUser.name,
           email: selectedUser.email,
           role: selectedUser.role,
-          programIds: selectedUser.assignedPrograms?.map((p: any) => p.id || p) || [],
+          programIds: selectedUser.assignedPrograms?.map((p) => p.id) || [],
         } : undefined}
       />
     </>

@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { attendanceService, programsService, patientsService } from "@/services";
-import { Attendance, Program, AttendanceStatus } from "@/types";
+import { Attendance, AttendanceStatus, Patient, Program } from "@/types";
 import { useToast } from "@/components/Toast";
+import { normalizeListResponse } from "@/utils/api";
 
 interface AttendanceSession {
   id: string;
@@ -35,7 +36,7 @@ interface AttendanceFilters {
 
 export function useAttendance(filters?: AttendanceFilters) {
   const [sessions, setSessions] = useState<AttendanceSession[]>([]);
-  const [attendanceRecords, setAttendanceRecords] = useState<any[]>([]);
+  const [attendanceRecords, setAttendanceRecords] = useState<Attendance[]>([]);
   const [pagination, setPagination] = useState<{
     page: number;
     limit: number;
@@ -46,7 +47,7 @@ export function useAttendance(filters?: AttendanceFilters) {
     overallRate: 0,
     programRates: [],
   });
-  const [programs, setPrograms] = useState<Array<{ id: string; name: string; assignedStaff?: any[] }>>([]);
+  const [programs, setPrograms] = useState<Array<{ id: string; name: string; assignedStaff?: Program["assignedStaff"] }>>([]);
   const [patients, setPatients] = useState<Array<{ id: string; name: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [loadingRecords, setLoadingRecords] = useState(false);
@@ -56,17 +57,15 @@ export function useAttendance(filters?: AttendanceFilters) {
     try {
       const response = await programsService.getAll();
       if (response.data) {
-        const programsArray = Array.isArray(response.data)
-          ? response.data
-          : response.data.data || [];
+        const programsArray = normalizeListResponse<Program>(response.data);
         // Include assignedStaff for filtering
-        setPrograms(programsArray.map((p: any) => ({ 
-          id: p.id, 
+        setPrograms(programsArray.map((p) => ({
+          id: p.id,
           name: p.name,
           assignedStaff: p.assignedStaff || [],
         })));
       }
-    } catch (error) {
+    } catch {
       // Error handled silently
     }
   }, []);
@@ -75,15 +74,13 @@ export function useAttendance(filters?: AttendanceFilters) {
     try {
       const response = await patientsService.getAll();
       if (response.data) {
-        const patientsArray = Array.isArray(response.data)
-          ? response.data
-          : response.data.data || [];
-        setPatients(patientsArray.map((p: any) => ({ 
-          id: p.id || p.patientId, 
-          name: p.fullName || p.name 
+        const patientsArray = normalizeListResponse<Patient>(response.data);
+        setPatients(patientsArray.map((p) => ({
+          id: p.id || p.patientId || "",
+          name: p.fullName || p.name,
         })));
       }
-    } catch (error) {
+    } catch {
       // Error handled silently
     }
   }, []);
@@ -92,16 +89,16 @@ export function useAttendance(filters?: AttendanceFilters) {
     setLoading(true);
     try {
       const response = await attendanceService.getAll();
-      const attendanceArray = Array.isArray(response.data) ? response.data : [];
-      
+      const attendanceArray = normalizeListResponse<Attendance>(response.data);
+
       if (attendanceArray.length > 0) {
-        const grouped = attendanceArray.reduce((acc: any, att: any) => {
-          const date = att.attendanceDate || att.createdAt?.split('T')[0] || new Date().toISOString().split('T')[0];
+        const grouped = attendanceArray.reduce<Record<string, AttendanceSession>>((acc, att) => {
+          const date = att.attendanceDate || new Date().toISOString().split("T")[0];
           const key = `${att.program?.id || att.programId}_${date}`;
           if (!acc[key]) {
             acc[key] = {
               id: key,
-              program: att.program?.name || 'Unknown Program',
+              program: att.program?.name || "Unknown Program",
               date: date,
               attended: 0,
               total: 0,
@@ -109,19 +106,20 @@ export function useAttendance(filters?: AttendanceFilters) {
             };
           }
           acc[key].total++;
-          if (att.status === 'Present' || att.status === 'Late') {
+          if (att.status === "Present" || att.status === "Late") {
             acc[key].attended++;
           }
           acc[key].patients.push({
             id: att.patient?.id || att.patientId,
-            name: att.patient?.fullName || att.patient?.name || 'Unknown Patient',
-            checkIn: att.checkInTime ? new Date(att.checkInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : null,
+            name: att.patient?.fullName || att.patient?.name || "Unknown Patient",
+            checkIn: att.checkInTime ? new Date(att.checkInTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : null,
             status: att.status,
           });
+          return acc;
         }, {});
         setSessions(Object.values(grouped));
       }
-    } catch (error) {
+    } catch {
       // Error handled silently
     } finally {
       setLoading(false);
@@ -135,7 +133,7 @@ export function useAttendance(filters?: AttendanceFilters) {
         const stats = response.data;
         setStatistics({
           overallRate: Math.round(stats.attendanceRate || 0),
-          programRates: (stats.programRates || []).map((pr: any) => ({
+          programRates: (stats.programRates || []).map((pr) => ({
             name: pr.programName,
             rate: Math.round(pr.rate || 0),
           })),
@@ -147,7 +145,7 @@ export function useAttendance(filters?: AttendanceFilters) {
           programRates: [],
         });
       }
-    } catch (error) {
+    } catch {
       setStatistics({
         overallRate: 0,
         programRates: [],
@@ -160,25 +158,18 @@ export function useAttendance(filters?: AttendanceFilters) {
     try {
       const response = await attendanceService.getAll(filters);
       if (response.data) {
-        // Handle paginated response: { data: [...], pagination: {...} }
-        if (response.data.data && Array.isArray(response.data.data)) {
-          setAttendanceRecords(response.data.data);
-          setPagination(response.data.pagination || null);
-        } else if (Array.isArray(response.data)) {
-          // Legacy: direct array response
-          setAttendanceRecords(response.data);
-          setPagination(null);
-        } else {
-          setAttendanceRecords([]);
-          setPagination(null);
-        }
-        return response.data.data || response.data || [];
+        const records = normalizeListResponse<Attendance>(response.data);
+        setAttendanceRecords(records);
+        setPagination(
+          Array.isArray(response.data) ? null : response.data.pagination || null
+        );
+        return records;
       } else {
         setAttendanceRecords([]);
         setPagination(null);
         return [];
       }
-    } catch (error) {
+    } catch {
       notify("Failed to load attendance records", "error");
       setAttendanceRecords([]);
       setPagination(null);
@@ -186,7 +177,7 @@ export function useAttendance(filters?: AttendanceFilters) {
     } finally {
       setLoadingRecords(false);
     }
-  }, []); // Removed notify
+  }, [notify]);
 
   const updateAttendance = useCallback(async (id: string, data: { status?: AttendanceStatus; notes?: string }) => {
     setLoading(true);
@@ -212,7 +203,7 @@ export function useAttendance(filters?: AttendanceFilters) {
     } finally {
       setLoading(false);
     }
-  }, [filters, loadAttendanceRecords, loadSessions, loadStatistics]); // Removed notify
+  }, [filters, loadAttendanceRecords, loadSessions, loadStatistics, notify]);
 
   const deleteAttendance = useCallback(async (id: string) => {
     setLoading(true);
@@ -237,7 +228,7 @@ export function useAttendance(filters?: AttendanceFilters) {
     } finally {
       setLoading(false);
     }
-  }, [filters, loadAttendanceRecords, loadSessions, loadStatistics]); // Removed notify
+  }, [filters, loadAttendanceRecords, loadSessions, loadStatistics, notify]);
 
   const markAttendance = useCallback(async (data: {
     programId: string;
@@ -271,7 +262,7 @@ export function useAttendance(filters?: AttendanceFilters) {
     } finally {
       setLoading(false);
     }
-  }, [filters, loadAttendanceRecords, loadSessions, loadStatistics]); // Removed notify
+  }, [filters, loadAttendanceRecords, loadSessions, loadStatistics, notify]);
 
   // Load attendance records when filters change or on initial mount
   useEffect(() => {

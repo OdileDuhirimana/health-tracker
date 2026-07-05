@@ -6,9 +6,8 @@
  * Refactored for modularity and maintainability
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/Toast";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardBody } from "@/components/ui/Card";
@@ -18,62 +17,58 @@ import EmptyState from "@/components/EmptyState";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 import { medicationsService, programsService, dispensationsService } from "@/services";
 import Button from "@/components/ui/Button";
+import { Dispensation, Medication, Program } from "@/types";
+import { normalizeListResponse } from "@/utils/api";
 
 export default function MedicationDetailsPage() {
   const params = useParams();
   const router = useRouter();
-  const { user } = useAuth();
   const { notify } = useToast();
   const medicationId = params.id as string;
-  const [medication, setMedication] = useState<any>(null);
-  const [programs, setPrograms] = useState<any[]>([]);
-  const [dispensations, setDispensations] = useState<any[]>([]);
+  const [medication, setMedication] = useState<Medication | null>(null);
+  const [programs, setPrograms] = useState<Program[]>([]);
+  const [dispensations, setDispensations] = useState<Dispensation[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadMedicationDetails();
-  }, [medicationId]);
-
-  const loadMedicationDetails = async () => {
+  const loadMedicationDetails = useCallback(async () => {
     setLoading(true);
     try {
       const medicationResponse = await medicationsService.getById(medicationId);
       if (medicationResponse.data) {
-        const medication = medicationResponse.data;
-        setMedication(medication);
-        
+        const loadedMedication = medicationResponse.data;
+        setMedication(loadedMedication);
+
         // Load assigned programs
         const programsResponse = await programsService.getAll();
         if (programsResponse.data) {
-          const programsArray = Array.isArray(programsResponse.data)
-            ? programsResponse.data
-            : programsResponse.data.data || [];
-          const assignedPrograms = programsArray.filter((p: any) => 
-            p.medications?.some((m: any) => m.id === medicationId) ||
-            (medication as any).programs?.some((p: any) => p.id === (medication as any).programId)
+          const programsArray = normalizeListResponse<Program>(programsResponse.data);
+          const assignedPrograms = programsArray.filter((p) =>
+            p.medications?.some((m) => m.id === medicationId)
           );
           setPrograms(assignedPrograms);
         }
-        
+
         // Load dispensation history
         const dispResponse = await dispensationsService.getAll();
         if (dispResponse.data) {
-          const dispensationsArray = Array.isArray(dispResponse.data)
-            ? dispResponse.data
-            : [];
-          setDispensations(dispensationsArray.filter((d: any) => d.medicationId === medicationId || d.medication?.id === medicationId));
+          const dispensationsArray = normalizeListResponse<Dispensation>(dispResponse.data);
+          setDispensations(dispensationsArray.filter((d) => d.medicationId === medicationId || d.medication?.id === medicationId));
         }
       } else {
         notify(medicationResponse.error || "Medication not found", "error");
         router.push("/medications/management");
       }
-    } catch (error) {
+    } catch {
       notify("Failed to load medication details", "error");
       router.push("/medications/management");
     } finally {
       setLoading(false);
     }
-  };
+  }, [medicationId, notify, router]);
+
+  useEffect(() => {
+    loadMedicationDetails();
+  }, [loadMedicationDetails]);
 
   if (loading) {
     return (
@@ -143,12 +138,6 @@ export default function MedicationDetailsPage() {
                     </Badge>
                   </div>
                 </div>
-                {medication.description && (
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Description</label>
-                    <p className="mt-1 text-sm text-gray-900">{medication.description}</p>
-                  </div>
-                )}
               </div>
             </CardBody>
           </Card>
@@ -167,7 +156,7 @@ export default function MedicationDetailsPage() {
                 />
               ) : (
                 <div className="space-y-3">
-                  {programs.map((program: any) => (
+                  {programs.map((program) => (
                     <div key={program.id} className="p-4 rounded-lg border border-gray-200 bg-gray-50">
                       <div className="flex items-center justify-between">
                         <div>
@@ -209,10 +198,10 @@ export default function MedicationDetailsPage() {
                     </tr>
                   </THead>
                   <TBody>
-                    {dispensations.map((disp: any) => (
+                    {dispensations.map((disp) => (
                       <tr key={disp.id}>
                         <TD>
-                          <span className="font-semibold text-gray-900">{disp.patient?.name || disp.patientName || "—"}</span>
+                          <span className="font-semibold text-gray-900">{disp.patient?.fullName || disp.patient?.name || "—"}</span>
                         </TD>
                         <TD>
                           <span className="text-gray-700">{disp.program?.name || "—"}</span>

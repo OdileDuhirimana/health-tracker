@@ -1,11 +1,13 @@
 /** Form component for creating and editing user accounts. */
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { FormField, FormInput, FormSelect, FormActions } from "@/components/ui/FormField";
 import Modal from "@/components/ui/Modal";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { programsApi } from "@/lib/api";
+import { Program } from "@/types";
+import { normalizeListResponse } from "@/utils/api";
 
 interface UserFormProps {
   open: boolean;
@@ -26,15 +28,30 @@ export function UserForm({ open, onClose, onSubmit, loading = false, initialValu
   // Initialize selectedRole with initialValues or default to "Healthcare Staff" for new users
   const [selectedRole, setSelectedRole] = useState<string>(initialValues?.role || "Healthcare Staff");
 
+  const loadPrograms = useCallback(async () => {
+    try {
+      const response = await programsApi.getAll();
+      if (response.data) {
+        const programsData = normalizeListResponse<Program>(response.data);
+        setPrograms(programsData.map((p) => ({ id: p.id, name: p.name })));
+      }
+    } catch {
+      setPrograms([]);
+    }
+  }, []);
+
   useEffect(() => {
     if (open) {
       loadPrograms();
     }
-  }, [open]);
+  }, [open, loadPrograms]);
 
   useEffect(() => {
     if (open) {
-      // Reset or set form state when modal opens
+      // Reset or set form state when modal opens. Intentionally depends
+      // only on `open` (not `initialValues`) — this effect should run once
+      // per modal open, not every time a parent re-render produces a new
+      // `initialValues` object reference for the same underlying record.
       if (initialValues) {
         setSelectedProgramIds(initialValues.programIds || []);
         setSelectedRole(initialValues.role || "Healthcare Staff");
@@ -43,24 +60,8 @@ export function UserForm({ open, onClose, onSubmit, loading = false, initialValu
         setSelectedRole("Healthcare Staff");
       }
     }
-  }, [open]); // Only depend on open, not initialValues
-
-  const loadPrograms = async () => {
-    try {
-      const response = await programsApi.getAll();
-      if (response.data) {
-        let programsData: any[] = [];
-        if (Array.isArray(response.data)) {
-          programsData = response.data;
-        } else if (response.data?.data && Array.isArray(response.data.data)) {
-          programsData = response.data.data;
-        }
-        setPrograms(programsData.map((p: any) => ({ id: p.id, name: p.name })));
-      }
-    } catch (error) {
-      setPrograms([]);
-    }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

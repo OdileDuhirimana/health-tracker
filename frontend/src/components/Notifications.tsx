@@ -7,21 +7,12 @@
  */
 
 import { useState, useRef, useEffect } from "react";
-import { BellIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { BellIcon } from "@heroicons/react/24/outline";
 import { CalendarDaysIcon, UserPlusIcon, ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import { PillIcon } from "@/components/ui/PillIcon";
 import { formatDistanceToNow } from "date-fns";
 import { notificationsService } from "@/services";
-
-type Notification = {
-  id: string;
-  type: "medication" | "session" | "enrollment" | "alert";
-  title: string;
-  message: string;
-  timestamp: Date | string;
-  read: boolean;
-  link?: string;
-};
+import { Notification } from "@/types";
 
 export default function Notifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -56,17 +47,17 @@ export default function Notifications() {
     try {
       const response = await notificationsService.getAll({ limit: 50 });
       if (response.data) {
-        setNotifications(response.data.map((n: any) => ({
+        setNotifications(response.data.map((n) => ({
           id: n.id,
-          type: n.type as Notification["type"],
+          type: n.type,
           title: n.title,
           message: n.message,
-          timestamp: n.timestamp || n.createdAt,
+          timestamp: n.timestamp || n.createdAt || new Date().toISOString(),
           read: n.read,
           link: n.link,
         })));
       }
-    } catch (error) {
+    } catch {
       // Error handled silently
     } finally {
       setLoading(false);
@@ -79,7 +70,7 @@ export default function Notifications() {
       if (response.data) {
         setUnreadCount(response.data.count || 0);
       }
-    } catch (error) {
+    } catch {
       // Error handled silently
     }
   };
@@ -91,7 +82,7 @@ export default function Notifications() {
         prev.map((n) => (n.id === id ? { ...n, read: true } : n))
       );
       setUnreadCount((prev) => Math.max(0, prev - 1));
-    } catch (error) {
+    } catch {
       // Error handled silently
     }
   };
@@ -103,7 +94,7 @@ export default function Notifications() {
       if (!notifications.find((n) => n.id === id)?.read) {
         setUnreadCount((prev) => Math.max(0, prev - 1));
       }
-    } catch (error) {
+    } catch {
       // Error handled silently
     }
   };
@@ -113,7 +104,7 @@ export default function Notifications() {
       await notificationsService.markAllAsRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       setUnreadCount(0);
-    } catch (error) {
+    } catch {
       // Error handled silently
     }
   };

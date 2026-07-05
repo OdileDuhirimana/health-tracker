@@ -12,7 +12,7 @@ export const medicationsService = {
    * Get all medications with optional search and filters
    */
   getAll: (search?: string, filters?: { page?: number; limit?: number }) => {
-    const params: Record<string, any> = { ...filters };
+    const params: Record<string, string | number> = { ...filters };
     if (search) params.search = search;
     const queryString = buildQueryString(params);
     return apiRequest<PaginatedResponse<Medication>>(`/medications?${queryString}`);

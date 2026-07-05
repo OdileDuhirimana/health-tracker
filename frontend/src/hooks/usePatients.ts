@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { patientsService } from "@/services";
 import { Patient, PatientFilters } from "@/types";
 import { useToast } from "@/components/Toast";
+import { extractPagination, normalizeListResponse } from "@/utils/api";
 
 export function usePatients(filters?: PatientFilters) {
   const { notify } = useToast();
@@ -21,34 +22,27 @@ export function usePatients(filters?: PatientFilters) {
       if (response.error) {
         throw new Error(response.error);
       }
-      let patientsArray: Patient[] = [];
-      let paginationData = null;
-      if (response.data?.data && Array.isArray(response.data.data)) {
-        patientsArray = response.data.data;
-        paginationData = response.data.pagination;
-      } else if (Array.isArray(response.data)) {
-        // Legacy: direct array response
-        patientsArray = response.data;
-      }
+      const patientsArray = normalizeListResponse<Patient>(response.data);
+      const paginationData = extractPagination<Patient>(response.data);
       // Map backend data to frontend format
-      return { 
-        patients: patientsArray.map((p: any) => ({
-        id: p.id || p.patientId,
-        patientId: p.patientId || p.id,
-        fullName: p.fullName || p.name,
-        name: p.fullName || p.name,
-        dateOfBirth: p.dateOfBirth,
-        gender: p.gender,
-        contactNumber: p.contactNumber,
-        email: p.email,
-        address: p.address,
-        emergencyContact: p.emergencyContact,
-        medicalNotes: p.medicalNotes,
-        status: (p.status?.toLowerCase() === 'active' ? 'active' : 'inactive') as "active" | "inactive",
-        programs: p.enrollments?.map((e: any) => e.program?.name || e.program?.type || "").filter(Boolean) || [],
-        enrollments: p.enrollments || [],
-        progress: p.progress,
-      })),
+      return {
+        patients: patientsArray.map((p) => ({
+          id: p.id || p.patientId || "",
+          patientId: p.patientId || p.id,
+          fullName: p.fullName || p.name,
+          name: p.fullName || p.name,
+          dateOfBirth: p.dateOfBirth,
+          gender: p.gender,
+          contactNumber: p.contactNumber,
+          email: p.email,
+          address: p.address,
+          emergencyContact: p.emergencyContact,
+          medicalNotes: p.medicalNotes,
+          status: (p.status?.toLowerCase() === "active" ? "active" : "inactive") as "active" | "inactive",
+          programs: p.enrollments?.map((e) => e.program?.name || e.program?.type || "").filter(Boolean) || [],
+          enrollments: p.enrollments || [],
+          progress: p.progress,
+        })),
         pagination: paginationData,
       };
     },

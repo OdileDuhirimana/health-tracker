@@ -64,7 +64,7 @@ export default function ProfilePage() {
       } else {
         notify(response.error || "Failed to update profile", "error");
       }
-    } catch (error) {
+    } catch {
       notify("Failed to update profile", "error");
     } finally {
       setLoading(false);
@@ -98,7 +98,7 @@ export default function ProfilePage() {
       } else {
         notify(response.error || "Failed to update password", "error");
       }
-    } catch (error) {
+    } catch {
       notify("Failed to update password", "error");
     } finally {
       setLoading(false);

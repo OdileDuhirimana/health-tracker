@@ -1,7 +1,6 @@
 "use client";
 
 import { ReactNode } from "react";
-import Button from "./Button";
 
 interface PageHeaderProps {
   title: string;

@@ -1,17 +1,33 @@
 /** Form component for creating and editing patient information. */
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useCallback, useEffect } from "react";
 import { FormField, FormInput, FormSelect, FormTextarea, FormActions } from "@/components/ui/FormField";
 import Modal from "@/components/ui/Modal";
 import SearchableSelect from "@/components/ui/SearchableSelect";
-import { programsApi, usersApi } from "@/lib/api";
+import { programsApi } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { Program } from "@/types";
+import { normalizeListResponse } from "@/utils/api";
+
+export interface PatientFormSubmitData {
+  name: string;
+  dob: string;
+  gender: string;
+  contact: string;
+  email: string;
+  address: string;
+  emergencyContact: string;
+  programId: string;
+  enrollmentDate: string;
+  assignedStaffId?: string;
+  medicalNotes: string;
+}
 
 interface PatientFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: any) => Promise<void>;
+  onSubmit: (data: PatientFormSubmitData) => Promise<void>;
   programs?: Array<{ id: string; name: string }>;
   loading?: boolean;
   inline?: boolean;
@@ -30,15 +46,15 @@ interface PatientFormProps {
   };
 }
 
-function PatientFormContent({ 
-  onSubmit, 
-  programs: initialPrograms = [], 
-  loading, 
-  initialValues 
-}: { 
-  onSubmit: (data: any) => Promise<void>; 
-  programs: Array<{ id: string; name: string }>; 
-  loading: boolean; 
+function PatientFormContent({
+  onSubmit,
+  programs: initialPrograms = [],
+  loading,
+  initialValues
+}: {
+  onSubmit: (data: PatientFormSubmitData) => Promise<void>;
+  programs: Array<{ id: string; name: string }>;
+  loading: boolean;
   initialValues?: PatientFormProps['initialValues'];
 }) {
   const { user } = useAuth();
@@ -48,11 +64,73 @@ function PatientFormContent({
   const [selectedStaffId, setSelectedStaffId] = React.useState(initialValues?.assignedStaffId || "");
   const [loadingStaff, setLoadingStaff] = React.useState(false);
 
+  const loadPrograms = useCallback(async () => {
+    try {
+      const response = await programsApi.getAll();
+      if (response.data) {
+        let programsData = normalizeListResponse<Program>(response.data);
+
+        // For Healthcare Staff: only show programs they are assigned to
+        if (user?.role === "Healthcare Staff") {
+          programsData = programsData.filter(
+            (p) =>
+              p.isAssigned ||
+              p.assignedStaff?.some(
+                (staff) => staff.id === user.id || staff.userId === user.id
+              )
+          );
+        }
+
+        setPrograms(programsData.map((p) => ({ id: p.id, name: p.name })));
+      }
+    } catch {
+      // Error handled silently
+    }
+  }, [user?.id, user?.role]);
+
+  const loadStaffForProgram = useCallback(async (programId: string) => {
+    if (!programId || user?.role !== "Admin") return;
+
+    setLoadingStaff(true);
+    try {
+      // Fetch program details to get assigned staff
+      const programResponse = await programsApi.getById(programId);
+      if (programResponse.data) {
+        const program = programResponse.data;
+        // Get staff assigned to this program
+        const assignedStaff = program.assignedStaff || [];
+
+        // Map assigned staff to the format we need
+        const staffData = assignedStaff
+          .filter((s) => s.role === "Healthcare Staff" || s.role === "Admin")
+          .map((s) => ({
+            id: s.id || s.userId || "",
+            name: s.name || s.email || "Unknown Staff",
+          }));
+
+        setStaff(staffData);
+
+        // Clear selected staff if they're not in the new list
+        setSelectedStaffId((current) =>
+          current && !staffData.some((s) => s.id === current) ? "" : current
+        );
+      }
+    } catch {
+      setStaff([]);
+    } finally {
+      setLoadingStaff(false);
+    }
+  }, [user?.role]);
+
   // Load programs if not provided
   useEffect(() => {
     if (programs.length === 0) {
       loadPrograms();
     }
+    // Intentionally runs once on mount to seed programs when none were
+    // provided by the parent; re-running on every `programs`/`loadPrograms`
+    // change would refetch after the user's own edits populate the list.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Load staff when program is selected
@@ -63,8 +141,7 @@ function PatientFormContent({
       setStaff([]);
       setSelectedStaffId("");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedProgramId, user?.role]);
+  }, [selectedProgramId, user?.role, loadStaffForProgram]);
 
   // Set initial program and load staff if program is provided
   React.useEffect(() => {
@@ -77,70 +154,7 @@ function PatientFormContent({
     if (initialValues?.assignedStaffId) {
       setSelectedStaffId(initialValues.assignedStaffId);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialValues?.programId, initialValues?.assignedStaffId, user?.role]);
-
-  const loadPrograms = async () => {
-    try {
-      const response = await programsApi.getAll();
-      if (response.data) {
-        let programsData: any[] = [];
-        if (Array.isArray(response.data)) {
-          programsData = response.data;
-        } else if (response.data?.data && Array.isArray(response.data.data)) {
-          programsData = response.data.data;
-        }
-        
-        // For Healthcare Staff: only show programs they are assigned to
-        if (user?.role === "Healthcare Staff") {
-          programsData = programsData.filter((p: any) => 
-            p.isAssigned || p.assignedStaff?.some((staff: any) => 
-              (staff.id === user.id || staff.userId === user.id) || 
-              (typeof staff === 'string' && staff === user.id)
-            )
-          );
-        }
-        
-        setPrograms(programsData.map((p: any) => ({ id: p.id, name: p.name })));
-      }
-    } catch (error) {
-      // Error handled silently
-    }
-  };
-
-  const loadStaffForProgram = async (programId: string) => {
-    if (!programId || user?.role !== "Admin") return;
-    
-    setLoadingStaff(true);
-    try {
-      // Fetch program details to get assigned staff
-      const programResponse = await programsApi.getById(programId);
-      if (programResponse.data) {
-        const program = programResponse.data;
-        // Get staff assigned to this program
-        const assignedStaff = program.assignedStaff || [];
-        
-        // Map assigned staff to the format we need
-        const staffData = assignedStaff
-          .filter((s: any) => s.role === "Healthcare Staff" || s.role === "Admin")
-          .map((s: any) => ({ 
-            id: s.id || s.userId, 
-            name: s.name || s.email || "Unknown Staff" 
-          }));
-        
-        setStaff(staffData);
-        
-        // Clear selected staff if they're not in the new list
-        if (selectedStaffId && !staffData.some((s: any) => s.id === selectedStaffId)) {
-          setSelectedStaffId("");
-        }
-      }
-    } catch (error) {
-      setStaff([]);
-    } finally {
-      setLoadingStaff(false);
-    }
-  };
+  }, [initialValues?.programId, initialValues?.assignedStaffId, user?.role, loadStaffForProgram]);
 
   const handleProgramChange = (programId: string) => {
     setSelectedProgramId(programId);

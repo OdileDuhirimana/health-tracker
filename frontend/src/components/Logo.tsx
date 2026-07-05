@@ -67,12 +67,7 @@ interface LogoProps {
    * Custom heart fill color
    */
   heartColor?: string;
-  
-  /**
-   * Custom ECG line color
-   */
-  ecgLineColor?: string;
-  
+
   /**
    * Text color variant
    */
@@ -104,7 +99,6 @@ export default function Logo({
   gap = 'default',
   className = '',
   heartColor,
-  ecgLineColor,
   textVariant = 'default',
 }: LogoProps) {
   const gapClass = GAP_MAP[gap];

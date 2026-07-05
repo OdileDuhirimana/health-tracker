@@ -16,7 +16,7 @@ export function TodaysSchedule({ items, className }: TodaysScheduleProps) {
   return (
     <Card className={className}>
       <div className="p-5">
-        <h3 className="font-bold mb-3 text-gray-900">Today's Schedule</h3>
+        <h3 className="font-bold mb-3 text-gray-900">Today&apos;s Schedule</h3>
         <p className="text-xs text-gray-600 mb-4">Your scheduled program sessions for today</p>
         {items.length > 0 ? (
           <ul className="space-y-3">

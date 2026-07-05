@@ -53,7 +53,7 @@ export function AssignedProgramsTable({ programs, onView }: AssignedProgramsTabl
               </TD>
               <TD>
                 <span className="text-gray-700">
-                  {program.totalPatients !== undefined ? program.totalPatients : (program as any).enrollments?.length || 0}
+                  {program.totalPatients !== undefined ? program.totalPatients : program.enrollments?.length || 0}
                 </span>
               </TD>
               <TD>

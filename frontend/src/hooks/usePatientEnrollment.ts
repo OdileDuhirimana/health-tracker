@@ -4,7 +4,7 @@
  */
 
 import { useState, useCallback } from "react";
-import { patientsService, programsService } from "@/services";
+import { patientsService } from "@/services";
 import { PatientFormData } from "@/types";
 import { useToast } from "@/components/Toast";
 

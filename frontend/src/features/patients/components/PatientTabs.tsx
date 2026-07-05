@@ -10,15 +10,14 @@ import Button from "@/components/ui/Button";
 import EmptyState from "@/components/EmptyState";
 import { CheckCircleIcon, CalendarDaysIcon, PlusIcon, ClipboardDocumentListIcon } from "@heroicons/react/24/outline";
 import { PillIcon } from "@/components/ui/PillIcon";
-import { Patient } from "@/types";
-import { User } from "@/types";
+import { Attendance, Dispensation, Patient, PatientEnrollment, User } from "@/types";
 
 interface PatientTabsProps {
   activeTab: "overview" | "programs" | "medications" | "attendance";
   patient: Patient;
-  programs: any[];
-  medications: any[];
-  attendance: any[];
+  programs: PatientEnrollment[];
+  medications: Dispensation[];
+  attendance: Attendance[];
   user?: User | null;
   onMarkCompleted?: (programId: string) => void;
   onQuickEnroll?: () => void;
@@ -135,7 +134,7 @@ export function PatientTabs({
             />
           ) : (
             <div className="space-y-3">
-              {programs.map((enrollment: any) => (
+              {programs.map((enrollment) => (
                 <div key={enrollment.id} className="p-4 rounded-lg border border-gray-200 bg-gray-50">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
@@ -151,10 +150,7 @@ export function PatientTabs({
                       <div className="text-xs text-gray-600 mt-1">
                         <span className="font-medium">Start:</span> {enrollment.enrollmentDate ? new Date(enrollment.enrollmentDate).toLocaleDateString() : "—"}
                         {enrollment.completedDate && (
-                          <> • <span className="font-medium">Expected End:</span> {new Date(enrollment.completedDate).toLocaleDateString()}</>
-                        )}
-                        {enrollment.isCompleted && enrollment.actualCompletionDate && (
-                          <> • <span className="font-medium text-green-600">Completed:</span> {new Date(enrollment.actualCompletionDate).toLocaleDateString()}</>
+                          <> • <span className="font-medium">{enrollment.isCompleted ? "Completed" : "Expected End"}:</span> {new Date(enrollment.completedDate).toLocaleDateString()}</>
                         )}
                       </div>
                       {enrollment.program?.duration && enrollment.program?.durationUnit && (
@@ -226,7 +222,7 @@ export function PatientTabs({
                 </tr>
               </THead>
               <TBody>
-                {medications.map((med: any) => (
+                {medications.map((med) => (
                   <tr key={med.id}>
                     <TD>
                       <span className="font-semibold text-gray-900">{med.medication?.name || "—"}</span>
@@ -277,7 +273,7 @@ export function PatientTabs({
                 </tr>
               </THead>
               <TBody>
-                {attendance.map((att: any) => (
+                {attendance.map((att) => (
                   <tr key={att.id}>
                     <TD>
                       <span className="font-semibold text-gray-900">{att.program?.name || "—"}</span>

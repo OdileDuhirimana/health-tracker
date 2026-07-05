@@ -1,9 +1,7 @@
 "use client";
 
 import { Card, CardBody } from "@/components/ui/Card";
-import { Field } from "@/components/ui/Field";
 import Button from "@/components/ui/Button";
-import { BellIcon, PaintBrushIcon } from "@heroicons/react/24/outline";
 
 export default function SettingsPage() {
   return (

@@ -56,7 +56,7 @@ export function ProgramsTable({ programs, userRole, onView, onEdit, onDelete }: 
             {userRole !== "Guest" && (
               <TD>
                 <span className="text-gray-700">
-                  {program.totalPatients !== undefined ? program.totalPatients : (program as any).enrollments?.length || 0}
+                  {program.totalPatients !== undefined ? program.totalPatients : program.enrollments?.length || 0}
                 </span>
               </TD>
             )}

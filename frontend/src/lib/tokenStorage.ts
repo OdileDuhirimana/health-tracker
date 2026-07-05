@@ -64,7 +64,7 @@ export const tokenStorage = {
       
       // Set a flag to track secure storage usage
       localStorage.setItem('healthtrack_token_secure', 'true');
-    } catch (error) {
+    } catch {
       throw new Error('Failed to store authentication token');
     }
   },
@@ -90,7 +90,7 @@ export const tokenStorage = {
       }
       
       return decode(encodedToken);
-    } catch (error) {
+    } catch {
       this.clearToken();
       return null;
     }
@@ -107,7 +107,7 @@ export const tokenStorage = {
       localStorage.removeItem(TOKEN_EXPIRY_KEY);
       localStorage.removeItem(USER_KEY);
       localStorage.removeItem('healthtrack_token_secure');
-    } catch (error) {
+    } catch {
       // Error clearing token handled silently
     }
   },
@@ -128,7 +128,7 @@ export const tokenStorage = {
     
     try {
       localStorage.setItem(USER_KEY, JSON.stringify(user));
-    } catch (error) {
+    } catch {
       // Error storing user data handled silently
     }
   },
@@ -143,7 +143,7 @@ export const tokenStorage = {
       const userStr = localStorage.getItem(USER_KEY);
       if (!userStr) return null;
       return JSON.parse(userStr);
-    } catch (error) {
+    } catch {
       return null;
     }
   },

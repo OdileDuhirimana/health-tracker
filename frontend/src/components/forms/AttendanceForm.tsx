@@ -8,6 +8,8 @@ import SearchableSelect from "@/components/ui/SearchableSelect";
 import { useToast } from "@/components/Toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { patientsApi } from "@/lib/api";
+import { Patient, Program } from "@/types";
+import { normalizeListResponse } from "@/utils/api";
 
 interface AttendanceFormProps {
   open: boolean;
@@ -22,8 +24,7 @@ interface AttendanceFormProps {
       checkInTime?: string;
     }>;
   }) => Promise<void>;
-  programs: Array<{ id: string; name: string }>;
-  patients?: Array<{ id: string; name: string }>;
+  programs: Array<{ id: string; name: string; assignedStaff?: Program["assignedStaff"] }>;
   loading?: boolean;
 }
 
@@ -32,7 +33,6 @@ export function AttendanceForm({
   onClose,
   onSubmit,
   programs,
-  patients: initialPatients = [],
   loading = false,
 }: AttendanceFormProps) {
   const { notify } = useToast();
@@ -59,10 +59,9 @@ export function AttendanceForm({
   
   // For Healthcare Staff, filter to only show programs they're assigned to
   const availablePrograms = user?.role === "Healthcare Staff"
-    ? programs.filter((p: any) => 
-        p.assignedStaff?.some((staff: any) => 
-          (staff.id === user.id || staff.userId === user.id) || 
-          (typeof staff === 'string' && staff === user.id)
+    ? programs.filter((p) =>
+        p.assignedStaff?.some(
+          (staff) => staff.id === user.id || staff.userId === user.id
         )
       )
     : programs;
@@ -74,28 +73,23 @@ export function AttendanceForm({
       setLoadingPatients(false);
       return;
     }
-    
+
     setLoadingPatients(true);
     try {
       // Always fetch patients from backend filtered by programId to get only enrolled patients
       const response = await patientsApi.getAll({ programId });
       if (response.data) {
-        let patientsData: any[] = [];
-        if (Array.isArray(response.data)) {
-          patientsData = response.data;
-        } else if (response.data?.data && Array.isArray(response.data.data)) {
-          patientsData = response.data.data;
-        }
+        const patientsData = normalizeListResponse<Patient>(response.data);
         // Map to the format needed by the form
-        const programPatients = patientsData.map((p: any) => ({
-          id: p.id || p.patientId,
+        const programPatients = patientsData.map((p) => ({
+          id: p.id || p.patientId || "",
           name: p.fullName || p.name,
         }));
         setPatients(programPatients);
-        
+
         // Auto-select all patients when loaded
         if (programPatients.length > 0) {
-          setSelectedPatients(programPatients.map((p: any) => p.id));
+          setSelectedPatients(programPatients.map((p) => p.id));
         } else {
           setSelectedPatients([]);
         }
@@ -103,7 +97,7 @@ export function AttendanceForm({
         setPatients([]);
         setSelectedPatients([]);
       }
-    } catch (error) {
+    } catch {
       notify("Failed to load patients for this program. Please try again.", "error");
       setPatients([]);
       setSelectedPatients([]);
@@ -129,7 +123,7 @@ export function AttendanceForm({
 
     const attendance = selectedPatients.map((patientId) => ({
       patientId,
-      status: (patientStatuses[patientId] || formData.get(`status_${patientId}`) as any || "Present") as "Present" | "Absent" | "Late" | "Excused" | "Canceled",
+      status: (patientStatuses[patientId] || formData.get(`status_${patientId}`)?.toString() || "Present") as "Present" | "Absent" | "Late" | "Excused" | "Canceled",
       checkInTime: selectedTime,
     }));
 

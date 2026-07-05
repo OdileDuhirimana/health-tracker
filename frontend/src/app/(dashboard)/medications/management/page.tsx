@@ -5,27 +5,22 @@ import Badge from "@/components/Badge";
 import EmptyState from "@/components/EmptyState";
 import { useToast } from "@/components/Toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { PlusIcon } from "@heroicons/react/24/outline";
 import { PageHeader, SearchBar } from "@/components/ui/PageHeader";
 import { FilterSelect } from "@/components/ui/FilterSelect";
 import { ActionButtons } from "@/components/ui/ActionButtons";
-import { MedicationForm } from "@/components/forms/MedicationForm";
+import { MedicationForm, MedicationFormSubmitData } from "@/components/forms/MedicationForm";
 import Button from "@/components/ui/Button";
 import { medicationsApi, programsApi } from "@/lib/api";
 import { LiaPillsSolid } from "react-icons/lia";
 import { Pagination } from "@/components/ui/Pagination";
+import { Medication as MedicationEntity, Program } from "@/types";
+import { normalizeListResponse } from "@/utils/api";
 
-type Medication = {
-  id: string;
-  name: string;
-  dosage: string;
-  frequency: string;
-  programType?: string;
+type Medication = MedicationEntity & {
   assignedPrograms?: string[];
-  status: "Active" | "Inactive";
-  createdAt?: string;
 };
 
 export default function MedicationsManagementPage() {
@@ -36,15 +31,39 @@ export default function MedicationsManagementPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [selectedMedication, setSelectedMedication] = useState<Medication | null>(null);
-  const [selectedMedicationDetails, setSelectedMedicationDetails] = useState<any>(null);
+  const [selectedMedicationDetails, setSelectedMedicationDetails] = useState<MedicationEntity | null>(null);
   const [query, setQuery] = useState("");
   const [programTypeFilter, setProgramTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(15);
   const { notify } = useToast();
+
+  const loadMedications = useCallback(async () => {
+    const response = await medicationsApi.getAll();
+    if (response.data) {
+      const medicationsArray = normalizeListResponse<Medication>(response.data);
+      // Transform medications to include assigned program names
+      const transformedMedications = medicationsArray.map((med) => ({
+        ...med,
+        assignedPrograms: med.programs?.map((p) => p.name) || [],
+        programType: med.programType || '',
+      }));
+      setMedications(transformedMedications);
+    } else if (response.error) {
+      notify(response.error, "error");
+      setMedications([]);
+    }
+  }, [notify]);
+
+  const loadPrograms = useCallback(async () => {
+    const response = await programsApi.getAll();
+    if (response.data) {
+      const programsArray = normalizeListResponse<Program>(response.data);
+      setPrograms(programsArray.map((p) => ({ id: p.id, name: p.name, type: p.type })));
+    }
+  }, []);
 
   // Load full medication details when editing
   useEffect(() => {
@@ -60,47 +79,42 @@ export default function MedicationsManagementPage() {
   useEffect(() => {
     if (user && user.role !== "Admin") {
       router.push("/medications");
-    } else {
-      loadMedications();
-      loadPrograms();
+      return;
     }
-  }, [user, router]);
+    // Fetch inline (rather than delegating to a bare call to the
+    // component-level loader) so this reads as a standard "fetch on
+    // mount/dependency change" effect per
+    // https://react.dev/learn/you-might-not-need-an-effect#fetching-data
+    let cancelled = false;
+    (async () => {
+      await Promise.all([loadMedications(), loadPrograms()]);
+      if (cancelled) return;
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, router, loadMedications, loadPrograms]);
 
-  const loadMedications = async () => {
-    const response = await medicationsApi.getAll();
-    if (response.data) {
-      const medicationsArray = Array.isArray(response.data)
-        ? response.data
-        : response.data.data || [];
-      // Transform medications to include assigned program names
-      const transformedMedications = medicationsArray.map((med: any) => ({
-        ...med,
-        assignedPrograms: med.programs?.map((p: any) => p.name) || [],
-        programType: med.programType || '',
-      }));
-      setMedications(transformedMedications);
-    } else if (response.error) {
-      notify(response.error, "error");
-      setMedications([]);
-    }
-  };
+  // Reset to page 1 when filters change. Derived during render (rather
+  // than in a useEffect that calls setState) to avoid an extra render
+  // pass — see
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-state-based-on-a-prop-change
+  const [prevFilterKey, setPrevFilterKey] = useState(`${query}|${programTypeFilter}|${statusFilter}`);
+  const filterKey = `${query}|${programTypeFilter}|${statusFilter}`;
+  if (filterKey !== prevFilterKey) {
+    setPrevFilterKey(filterKey);
+    setCurrentPage(1);
+  }
 
-  const loadPrograms = async () => {
-    const response = await programsApi.getAll();
-    if (response.data) {
-      const programsArray = Array.isArray(response.data)
-        ? response.data
-        : response.data.data || [];
-      setPrograms(programsArray.map((p: any) => ({ id: p.id, name: p.name, type: p.type })));
-    }
-  };
-
+  // Non-Admins are redirected away by the effect above; render nothing in
+  // the meantime. This must come after every hook call above
+  // (rules-of-hooks) — hooks can't be skipped conditionally.
   if (user && user.role !== "Admin") {
     return null;
   }
 
   const filteredMedications = medications.filter((m) => {
-    const matchesQuery = !query || 
+    const matchesQuery = !query ||
       m.name?.toLowerCase().includes(query.toLowerCase()) ||
       m.dosage?.toLowerCase().includes(query.toLowerCase()) ||
       m.frequency?.toLowerCase().includes(query.toLowerCase());
@@ -114,15 +128,9 @@ export default function MedicationsManagementPage() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedMedications = filteredMedications.slice(startIndex, startIndex + itemsPerPage);
 
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [query, programTypeFilter, statusFilter]);
-
-  const handleAddMedication = async (data: any) => {
+  const handleAddMedication = async (data: MedicationFormSubmitData) => {
     setLoading(true);
-    setErrors({});
-    
+
     const response = await medicationsApi.create({
       name: data.name,
       dosage: data.dosage,
@@ -139,19 +147,15 @@ export default function MedicationsManagementPage() {
       router.push("/medications");
     } else {
       notify(response.error || "Failed to create medication", "error");
-      if (response.error) {
-        setErrors({ general: response.error });
-      }
     }
     setLoading(false);
   };
 
-  const handleEditMedication = async (data: any) => {
+  const handleEditMedication = async (data: MedicationFormSubmitData) => {
     if (!selectedMedication) return;
-    
+
     setLoading(true);
-    setErrors({});
-    
+
     const response = await medicationsApi.update(selectedMedication.id, {
       name: data.name,
       dosage: data.dosage,
@@ -167,9 +171,6 @@ export default function MedicationsManagementPage() {
       await loadMedications();
     } else {
       notify(response.error || "Failed to update medication", "error");
-      if (response.error) {
-        setErrors({ general: response.error });
-      }
     }
     setLoading(false);
   };
@@ -336,7 +337,6 @@ export default function MedicationsManagementPage() {
         open={addOpen}
         onClose={() => {
           setAddOpen(false);
-          setErrors({});
         }}
         onSubmit={handleAddMedication}
         programs={programs}
@@ -349,7 +349,6 @@ export default function MedicationsManagementPage() {
           setEditOpen(false);
           setSelectedMedication(null);
           setSelectedMedicationDetails(null);
-          setErrors({});
         }}
         onSubmit={handleEditMedication}
         programs={programs}
@@ -360,7 +359,7 @@ export default function MedicationsManagementPage() {
           frequency: selectedMedication.frequency,
           programType: selectedMedication.programType || selectedMedicationDetails.programType,
           status: selectedMedication.status,
-          assignedProgramIds: selectedMedicationDetails.programs?.map((p: any) => p.id) || [],
+          assignedProgramIds: selectedMedicationDetails.programs?.map((p) => p.id) || [],
         } : undefined}
       />
     </>

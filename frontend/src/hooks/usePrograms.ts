@@ -5,6 +5,18 @@ import { programsService } from "@/services";
 import { Program, ProgramFilters } from "@/types";
 import { useToast } from "@/components/Toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { extractPagination, normalizeListResponse } from "@/utils/api";
+
+export interface UpdateProgramData extends Partial<Program> {
+  medicationIds?: string[];
+  staffIds?: string[];
+  components?: Array<{
+    type: 'session' | 'consultation' | 'group_discussion';
+    name: string;
+    description?: string;
+  }>;
+  sessionFreq?: string;
+}
 
 export function usePrograms(filters?: ProgramFilters) {
   const { notify } = useToast();
@@ -23,15 +35,8 @@ export function usePrograms(filters?: ProgramFilters) {
       if (response.error) {
         throw new Error(response.error);
       }
-      let programsArray: Program[] = [];
-      let paginationData = null;
-      if (response.data?.data && Array.isArray(response.data.data)) {
-        programsArray = response.data.data;
-        paginationData = response.data.pagination;
-      } else if (Array.isArray(response.data)) {
-        // Legacy: direct array response
-        programsArray = response.data;
-      }
+      const programsArray = normalizeListResponse<Program>(response.data);
+      const paginationData = extractPagination<Program>(response.data);
       return { programs: programsArray, pagination: paginationData };
     },
   });
@@ -41,18 +46,18 @@ export function usePrograms(filters?: ProgramFilters) {
   const pagination = programsData?.pagination || null;
   const assignedPrograms =
     user?.role === "Healthcare Staff" && user?.id
-      ? programs.filter((p: any) =>
+      ? programs.filter((p) =>
           p.assignedStaff?.some(
-            (staff: any) => staff.id === user.id || staff.userId === user.id
+            (staff) => staff.id === user.id || staff.userId === user.id
           )
         )
       : [];
   const allPrograms =
     user?.role === "Healthcare Staff"
       ? programs.filter(
-          (p: any) =>
+          (p) =>
             !p.assignedStaff?.some(
-              (staff: any) => staff.id === user.id || staff.userId === user.id
+              (staff) => staff.id === user.id || staff.userId === user.id
             )
         )
       : programs;
@@ -94,16 +99,7 @@ export function usePrograms(filters?: ProgramFilters) {
       data,
     }: {
       id: string;
-      data: Partial<Program> & {
-        medicationIds?: string[];
-        staffIds?: string[];
-        components?: Array<{
-          type: 'session' | 'consultation' | 'group_discussion';
-          name: string;
-          description?: string;
-        }>;
-        sessionFreq?: string;
-      };
+      data: UpdateProgramData;
     }) => {
       const response = await programsService.update(id, data);
       if (response.error) {
@@ -149,7 +145,7 @@ export function usePrograms(filters?: ProgramFilters) {
       });
     },
     createProgram: createMutation.mutateAsync,
-    updateProgram: (id: string, data: Partial<Program>) =>
+    updateProgram: (id: string, data: UpdateProgramData) =>
       updateMutation.mutateAsync({ id, data }),
     deleteProgram: deleteMutation.mutateAsync,
   };

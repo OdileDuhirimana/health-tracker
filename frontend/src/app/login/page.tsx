@@ -56,7 +56,7 @@ export default function LoginPage() {
 
     try {
       // Login without role - backend will determine role from user account
-      await login(email, password, "", rememberMe);
+      await login(email, password, rememberMe);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Login failed. Please check your credentials and try again.";
       setError(errorMessage);
@@ -156,7 +156,7 @@ export default function LoginPage() {
 
         <div className="mt-8 text-center">
           <p className="text-sm text-gray-600">
-            Don't have an account?{" "}
+            Don&apos;t have an account?{" "}
             <Link
               href="/signup"
               className="text-[#0066cc] hover:text-[#0052a3] font-semibold transition-colors"

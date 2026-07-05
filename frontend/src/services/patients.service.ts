@@ -4,7 +4,7 @@
  */
 
 import { apiRequest, buildQueryString } from "./api-client";
-import { Patient, PatientFilters, PatientEnrollment } from "@/types";
+import { EnrollPatientData, Patient, PatientFilters, PatientEnrollment } from "@/types";
 import { PaginatedResponse } from "@/types";
 
 export const patientsService = {
@@ -51,7 +51,7 @@ export const patientsService = {
   /**
    * Enroll patient in a program
    */
-  enroll: (patientId: string, programId: string, data?: any) =>
+  enroll: (patientId: string, programId: string, data?: EnrollPatientData) =>
     apiRequest<PatientEnrollment>(`/patients/${patientId}/enroll`, {
       method: "POST",
       body: JSON.stringify({ patientId, programId, ...data }),

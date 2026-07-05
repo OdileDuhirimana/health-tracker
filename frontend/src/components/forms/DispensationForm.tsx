@@ -7,6 +7,8 @@ import Modal from "@/components/ui/Modal";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { useAuth } from "@/contexts/AuthContext";
 import { patientsApi, programsApi, medicationsApi } from "@/lib/api";
+import { Medication, Patient, Program } from "@/types";
+import { normalizeListResponse } from "@/utils/api";
 
 interface DispensationFormProps {
   open: boolean;
@@ -19,7 +21,7 @@ interface DispensationFormProps {
     notes?: string;
   }) => Promise<void>;
   patients?: Array<{ id: string; name: string }>;
-  programs?: Array<{ id: string; name: string }>;
+  programs?: Array<{ id: string; name: string; assignedStaff?: Program["assignedStaff"]; medications?: Program["medications"] }>;
   medications?: Array<{ id: string; name: string; dosage: string; frequency: string }>;
   quickDispenseData?: { patientId?: string; programId?: string; medicationId?: string };
   loading?: boolean;
@@ -40,11 +42,15 @@ export function DispensationForm({
   const [selectedProgramId, setSelectedProgramId] = useState(quickDispenseData?.programId || "");
   const [selectedMedicationId, setSelectedMedicationId] = useState(quickDispenseData?.medicationId || "");
   const [patients, setPatients] = useState<Array<{ id: string; name: string }>>(initialPatients);
-  const [programs, setPrograms] = useState<Array<{ id: string; name: string; medications?: any[] }>>(initialPrograms);
+  const [programs, setPrograms] = useState<Array<{ id: string; name: string; assignedStaff?: Program["assignedStaff"]; medications?: Program["medications"] }>>(initialPrograms);
   const [allMedications, setAllMedications] = useState<Array<{ id: string; name: string; dosage: string; frequency: string }>>(initialMedications);
   const [availableMedications, setAvailableMedications] = useState<Array<{ id: string; name: string; dosage: string; frequency: string }>>([]);
   const [availablePatients, setAvailablePatients] = useState<Array<{ id: string; name: string }>>([]);
-  const [duplicateError, setDuplicateError] = useState<{message: string; lastDispensedAt?: string; frequency?: string; hoursAgo?: number} | null>(null);
+  // The backend only ever returns a human-readable message string for
+  // duplicate-dispensation conflicts (see dispensations.service.ts) — there
+  // is no structured payload with separate lastDispensedAt/frequency/
+  // hoursAgo fields, so we only track the message here.
+  const [duplicateError, setDuplicateError] = useState<{ message: string } | null>(null);
 
   // Load data from backend when modal opens if not provided
   useEffect(() => {
@@ -60,18 +66,13 @@ export function DispensationForm({
     try {
       const response = await patientsApi.getAll();
       if (response.data) {
-        let patientsData: any[] = [];
-        if (Array.isArray(response.data)) {
-          patientsData = response.data;
-        } else if (response.data?.data && Array.isArray(response.data.data)) {
-          patientsData = response.data.data;
-        }
-        setPatients(patientsData.map((p: any) => ({
+        const patientsData = normalizeListResponse<Patient>(response.data);
+        setPatients(patientsData.map((p) => ({
           id: p.id,
           name: p.fullName || p.name,
         })));
       }
-    } catch (error) {
+    } catch {
       // Error handled silently
     }
   };
@@ -80,15 +81,10 @@ export function DispensationForm({
     try {
       const response = await programsApi.getAll();
       if (response.data) {
-        let programsData: any[] = [];
-        if (Array.isArray(response.data)) {
-          programsData = response.data;
-        } else if (response.data?.data && Array.isArray(response.data.data)) {
-          programsData = response.data.data;
-        }
-        setPrograms(programsData.map((p: any) => ({ id: p.id, name: p.name })));
+        const programsData = normalizeListResponse<Program>(response.data);
+        setPrograms(programsData.map((p) => ({ id: p.id, name: p.name, assignedStaff: p.assignedStaff, medications: p.medications })));
       }
-    } catch (error) {
+    } catch {
       // Error handled silently
     }
   };
@@ -97,13 +93,8 @@ export function DispensationForm({
     try {
       const response = await medicationsApi.getAll();
       if (response.data) {
-        let medicationsData: any[] = [];
-        if (Array.isArray(response.data)) {
-          medicationsData = response.data;
-        } else if (response.data?.data && Array.isArray(response.data.data)) {
-          medicationsData = response.data.data;
-        }
-        const meds = medicationsData.map((m: any) => ({
+        const medicationsData = normalizeListResponse<Medication>(response.data);
+        const meds = medicationsData.map((m) => ({
           id: m.id,
           name: m.name,
           dosage: m.dosage || "",
@@ -117,16 +108,20 @@ export function DispensationForm({
           setAvailableMedications(meds);
         }
       }
-    } catch (error) {
+    } catch {
       // Error handled silently
     }
   };
 
   // Filter medications and patients when program is selected
-  const filterMedicationsByProgram = (programId: string, meds: any[], progs: any[]) => {
+  const filterMedicationsByProgram = (
+    programId: string,
+    meds: Array<{ id: string; name: string; dosage: string; frequency: string }>,
+    progs: Array<{ id: string; medications?: Program["medications"] }>
+  ) => {
     const program = progs.find(p => p.id === programId);
     if (program && program.medications) {
-      const programMedIds = program.medications.map((m: any) => typeof m === 'string' ? m : m.id);
+      const programMedIds = program.medications.map((m) => m.id);
       setAvailableMedications(meds.filter(m => programMedIds.includes(m.id)));
     } else {
       setAvailableMedications(meds);
@@ -149,10 +144,9 @@ export function DispensationForm({
 
   // For Healthcare Staff, filter programs
   const availablePrograms = user?.role === "Healthcare Staff"
-    ? programs.filter((p: any) => 
-        p.assignedStaff?.some((staff: any) => 
-          (staff.id === user.id || staff.userId === user.id) || 
-          (typeof staff === 'string' && staff === user.id)
+    ? programs.filter((p) =>
+        p.assignedStaff?.some(
+          (staff) => staff.id === user.id || staff.userId === user.id
         )
       )
     : programs;
@@ -161,15 +155,13 @@ export function DispensationForm({
     try {
       const response = await patientsApi.getAll({ programId });
       if (response.data) {
-        const patientsArray = Array.isArray(response.data)
-          ? response.data
-          : response.data.data || [];
-        setAvailablePatients(patientsArray.map((p: any) => ({
-          id: p.id || p.patientId,
+        const patientsArray = normalizeListResponse<Patient>(response.data);
+        setAvailablePatients(patientsArray.map((p) => ({
+          id: p.id || p.patientId || "",
           name: p.fullName || p.name,
         })));
       }
-    } catch (error) {
+    } catch {
       setAvailablePatients([]);
     }
   };
@@ -204,15 +196,11 @@ export function DispensationForm({
         dispensedAt: formData.get("dispensedAt")?.toString() || new Date().toISOString(),
         notes: formData.get("notes")?.toString(),
       });
-    } catch (error: any) {
+    } catch (error) {
       // Check if it's a duplicate error
-      if (error?.message && (error.message.includes('duplicate') || error.message.includes('already dispensed'))) {
-        setDuplicateError({
-          message: error.message,
-          lastDispensedAt: error.lastDispensedAt,
-          frequency: error.frequency,
-          hoursAgo: error.hoursAgo
-        });
+      const message = error instanceof Error ? error.message : "";
+      if (message && (message.toLowerCase().includes('duplicate') || message.toLowerCase().includes('already dispensed'))) {
+        setDuplicateError({ message });
       }
       throw error; // Re-throw to let the hook handle toast notification
     }
@@ -237,17 +225,6 @@ export function DispensationForm({
               <div className="flex-1">
                 <h3 className="text-sm font-semibold text-red-800 mb-1">Duplicate Dispensation Prevented</h3>
                 <p className="text-sm text-red-700 mb-2">{duplicateError.message}</p>
-                {duplicateError.lastDispensedAt && (
-                  <div className="text-xs text-red-600 space-y-1">
-                    <p><span className="font-medium">Last dispensed:</span> {new Date(duplicateError.lastDispensedAt).toLocaleString()}</p>
-                    {duplicateError.hoursAgo && (
-                      <p><span className="font-medium">Time ago:</span> {duplicateError.hoursAgo} hours ago</p>
-                    )}
-                    {duplicateError.frequency && (
-                      <p><span className="font-medium">Frequency:</span> {duplicateError.frequency}</p>
-                    )}
-                  </div>
-                )}
               </div>
             </div>
           </div>

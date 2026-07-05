@@ -1,6 +1,6 @@
 "use client";
 
-import { ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, Tooltip, Legend } from "recharts";
+import { ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, Tooltip, Legend, PieLabelRenderProps } from "recharts";
 
 // Export with different name to avoid conflict
 import { Card } from "@/components/ui/Card";
@@ -31,7 +31,7 @@ export function PieChart({ title, data, height = 256 }: PieChartProps) {
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({ name, percent }: any) => `${name}: ${((percent || 0) * 100).toFixed(0)}%`}
+                label={({ name, percent }: PieLabelRenderProps) => `${name}: ${(((percent as number) || 0) * 100).toFixed(0)}%`}
                 outerRadius={80}
                 fill="#8884d8"
                 dataKey="value"

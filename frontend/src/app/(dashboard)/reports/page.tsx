@@ -10,7 +10,6 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { DocumentArrowDownIcon, LockClosedIcon } from "@heroicons/react/24/outline";
 import { useAuth } from "@/contexts/AuthContext";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { StatsCard } from "@/components/ui/StatsCard";
 import { Card } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";

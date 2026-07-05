@@ -6,7 +6,7 @@
  * Refactored for modularity and maintainability
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/Toast";
@@ -18,6 +18,8 @@ import EmptyState from "@/components/EmptyState";
 import { ArrowLeftIcon, UsersIcon } from "@heroicons/react/24/outline";
 import Button from "@/components/ui/Button";
 import { programsService, patientsService } from "@/services";
+import { Patient, Program } from "@/types";
+import { normalizeListResponse } from "@/utils/api";
 
 export default function ProgramDetailsPage() {
   const params = useParams();
@@ -25,15 +27,11 @@ export default function ProgramDetailsPage() {
   const { user } = useAuth();
   const { notify } = useToast();
   const programId = params.id as string;
-  const [program, setProgram] = useState<any>(null);
-  const [patients, setPatients] = useState<any[]>([]);
+  const [program, setProgram] = useState<Program | null>(null);
+  const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadProgramDetails();
-  }, [programId]);
-
-  const loadProgramDetails = async () => {
+  const loadProgramDetails = useCallback(async () => {
     setLoading(true);
     try {
       const programResponse = await programsService.getById(programId);
@@ -43,12 +41,9 @@ export default function ProgramDetailsPage() {
         if (user && user.role !== "Guest") {
           const patientsResponse = await patientsService.getAll();
           if (patientsResponse.data) {
-            const patientsArray = Array.isArray(patientsResponse.data) 
-              ? patientsResponse.data 
-              : (patientsResponse.data?.data || []);
-            setPatients(patientsArray.filter((p: any) => 
-              p.programs?.some((prog: any) => prog.id === programId) || 
-              p.enrollments?.some((e: any) => e.programId === programId)
+            const patientsArray = normalizeListResponse<Patient>(patientsResponse.data);
+            setPatients(patientsArray.filter((p) =>
+              p.enrollments?.some((e) => e.programId === programId)
             ));
           }
         }
@@ -56,13 +51,17 @@ export default function ProgramDetailsPage() {
         notify(programResponse.error || "Program not found", "error");
         router.push("/programs");
       }
-    } catch (error) {
+    } catch {
       notify("Failed to load program details", "error");
       router.push("/programs");
     } finally {
       setLoading(false);
     }
-  };
+  }, [programId, user, notify, router]);
+
+  useEffect(() => {
+    loadProgramDetails();
+  }, [loadProgramDetails]);
 
   if (loading) {
     return (
@@ -143,7 +142,7 @@ export default function ProgramDetailsPage() {
             <CardBody>
               {program.medications && program.medications.length > 0 ? (
                 <div className="space-y-3">
-                  {program.medications.map((med: any) => (
+                  {program.medications.map((med) => (
                     <div key={med.id} className="p-3 rounded-lg border border-gray-200 bg-gray-50">
                       <div className="font-semibold text-gray-900 text-sm">{med.name}</div>
                       <div className="text-xs text-gray-600 mt-1">

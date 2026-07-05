@@ -10,9 +10,9 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/Toast";
-import { PageHeader, SearchBar } from "@/components/ui/PageHeader";
+import { SearchBar } from "@/components/ui/PageHeader";
 import { TabSwitcher } from "@/components/ui/TabSwitcher";
-import { PatientForm } from "@/components/forms/PatientForm";
+import { PatientForm, PatientFormSubmitData } from "@/components/forms/PatientForm";
 import { Card } from "@/components/ui/Card";
 import EmptyState from "@/components/EmptyState";
 import SidebarPanel from "@/components/ui/SidebarPanel";
@@ -78,7 +78,23 @@ export default function PatientsPage() {
     }
   }, [user, router, notify]);
 
-  // Early return for Guest users
+  // Load data - removed progressMin and adherenceMin from dependencies.
+  // `loadPatients`/`loadPrograms` are intentionally omitted: both hooks
+  // return a fresh function reference on every render (they close over
+  // React Query's `refetch`), so including them here would re-run this
+  // effect on every render instead of only when a filter actually changes.
+  useEffect(() => {
+    if (user && user.role !== "Guest") {
+      loadPatients();
+      loadPrograms();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, debouncedQuery, programFilter, sortBy, sortOrder, currentPage]);
+
+  // Early return for Guest users. This must come after every hook call
+  // above (rules-of-hooks) — hooks can't be skipped conditionally, so all
+  // of them run unconditionally on every render and only the returned JSX
+  // branches on role.
   if (user && user.role === "Guest") {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -95,25 +111,17 @@ export default function PatientsPage() {
     );
   }
 
-  // Load data - removed progressMin and adherenceMin from dependencies
-  useEffect(() => {
-    if (user && user.role !== "Guest") {
-      loadPatients();
-      loadPrograms();
-    }
-  }, [user, debouncedQuery, programFilter, sortBy, sortOrder, currentPage]);
-
   // Handlers
-  const handleEnrollPatient = async (data: any) => {
+  const handleEnrollPatient = async (data: PatientFormSubmitData) => {
     try {
       await enrollPatient(data, loadPatients);
       setTab("all");
-    } catch (error) {
+    } catch {
       // Error handled by hook
     }
   };
 
-  const handleUpdatePatient = async (data: any) => {
+  const handleUpdatePatient = async (data: PatientFormSubmitData) => {
     if (!selectedPatient) return;
     try {
       await updatePatient(selectedPatient.id, {
@@ -128,7 +136,7 @@ export default function PatientsPage() {
       });
       setEditOpen(false);
       setSelectedPatient(null);
-    } catch (error) {
+    } catch {
       // Error handled by hook
     }
   };

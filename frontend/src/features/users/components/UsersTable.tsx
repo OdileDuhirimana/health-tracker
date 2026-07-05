@@ -74,7 +74,7 @@ export function UsersTable({ users, currentUserId, onEdit, onDelete }: UsersTabl
               <Badge variant="active">Active</Badge>
             </TD>
             <TD>
-              <span className="text-gray-700">—</span>
+              <span className="text-gray-700">{formatDate(u.createdAt)}</span>
             </TD>
             <TD>
               <ActionButtons

@@ -50,7 +50,7 @@ export function ProgramDetailsPanel({ open, onClose, program, medications }: Pro
             <div>
               <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Patients Enrolled</div>
               <div className="text-2xl text-gray-900 font-bold">
-                {program.totalPatients !== undefined ? program.totalPatients : (program as any).enrollments?.length || 0}
+                {program.totalPatients !== undefined ? program.totalPatients : program.enrollments?.length || 0}
               </div>
             </div>
           )}
@@ -58,7 +58,7 @@ export function ProgramDetailsPanel({ open, onClose, program, medications }: Pro
             <div>
               <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Assigned Staff</div>
               <ul className="space-y-2">
-                {program.assignedStaff.map((staff: any) => (
+                {program.assignedStaff.map((staff) => (
                   <li key={staff.id || staff.userId} className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 border border-gray-200">
                     <div className="h-8 w-8 rounded-full bg-[#0066cc] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                       {(staff.name || staff.email || "U").charAt(0).toUpperCase()}
@@ -85,7 +85,7 @@ export function ProgramDetailsPanel({ open, onClose, program, medications }: Pro
             <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Medications</div>
             <ul className="space-y-2">
               {program.medications && program.medications.length > 0 ? (
-                program.medications.map((med: any) => {
+                program.medications.map((med) => {
                   // Check if med is already a full object with name
                   if (typeof med === 'object' && med.name) {
                     return (

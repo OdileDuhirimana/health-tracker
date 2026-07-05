@@ -20,7 +20,6 @@ import EmptyState from "@/components/EmptyState";
 import { Card } from "@/components/ui/Card";
 import { Pagination } from "@/components/ui/Pagination";
 import { useAttendance } from "@/hooks/useAttendance";
-import { AttendanceSessionCard } from "@/features/attendance/components/AttendanceSessionCard";
 import { AttendanceStatistics } from "@/features/attendance/components/AttendanceStatistics";
 import { Attendance, AttendanceStatus } from "@/types";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -55,12 +54,10 @@ export default function AttendancePage() {
   };
 
   const {
-    sessions,
     attendanceRecords,
     pagination,
     statistics,
     programs,
-    patients,
     loading,
     loadingRecords,
     loadPrograms,
@@ -134,17 +131,9 @@ export default function AttendancePage() {
         })),
       });
       setMarkOpen(false);
-    } catch (error) {
+    } catch {
       // Error handled by hook
     }
-  };
-
-  const handleStatusChange = (patientId: string, status: string) => {
-    notify(`Status updated to ${status}`, "success");
-  };
-
-  const handleMarkAllPresent = () => {
-    notify("All patients marked as Present", "success");
   };
 
   const handleEditRecord = (record: Attendance) => {
@@ -157,7 +146,7 @@ export default function AttendancePage() {
       await updateAttendance(id, data);
       setEditOpen(false);
       setSelectedRecord(null);
-    } catch (error) {
+    } catch {
       // Error handled by hook
     }
   };
@@ -168,7 +157,7 @@ export default function AttendancePage() {
     }
     try {
       await deleteAttendance(id);
-    } catch (error) {
+    } catch {
       // Error handled by hook
     }
   };
@@ -185,10 +174,9 @@ export default function AttendancePage() {
 
   // For Healthcare Staff, filter programs to only show assigned programs
   const availablePrograms = user?.role === "Healthcare Staff"
-    ? programs.filter((p: any) => 
-        p.assignedStaff?.some((staff: any) => 
-          (staff.id === user.id || staff.userId === user.id) || 
-          (typeof staff === 'string' && staff === user.id)
+    ? programs.filter((p) =>
+        p.assignedStaff?.some(
+          (staff) => staff.id === user.id || staff.userId === user.id
         )
       )
     : programs;
@@ -348,7 +336,6 @@ export default function AttendancePage() {
         onClose={() => setMarkOpen(false)}
         onSubmit={handleMarkAttendance}
         programs={programs}
-        patients={patients}
         loading={loading}
       />
 

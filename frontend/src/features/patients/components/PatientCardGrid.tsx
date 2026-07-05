@@ -5,7 +5,7 @@
 
 import { useRouter } from "next/navigation";
 import { PatientCard } from "@/components/PatientCard";
-import { Patient, PatientProgress } from "@/types";
+import { Patient } from "@/types";
 
 interface PatientCardGridProps {
   patients: Patient[];

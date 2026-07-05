@@ -4,6 +4,7 @@
  */
 
 import { apiRequest, buildQueryString } from "./api-client";
+import { Notification } from "@/types";
 
 export const notificationsService = {
   /**
@@ -11,27 +12,27 @@ export const notificationsService = {
    */
   getAll: (filters?: { read?: boolean; limit?: number }) => {
     const queryString = filters ? buildQueryString(filters) : "";
-    return apiRequest<any[]>(`/notifications?${queryString}`);
+    return apiRequest<Notification[]>(`/notifications?${queryString}`);
   },
-  
+
   /**
    * Get unread notifications count
    */
   getUnreadCount: () => apiRequest<{ count: number }>("/notifications/unread/count"),
-  
+
   /**
    * Mark notification as read
    */
-  markAsRead: (id: string) => apiRequest<any>(`/notifications/${id}/read`, { method: "PATCH" }),
-  
+  markAsRead: (id: string) => apiRequest<Notification>(`/notifications/${id}/read`, { method: "PATCH" }),
+
   /**
    * Mark all notifications as read
    */
-  markAllAsRead: () => apiRequest<any>("/notifications/read-all", { method: "PATCH" }),
-  
+  markAllAsRead: () => apiRequest<{ count: number }>("/notifications/read-all", { method: "PATCH" }),
+
   /**
    * Delete notification
    */
-  remove: (id: string) => apiRequest<any>(`/notifications/${id}`, { method: "DELETE" }),
+  remove: (id: string) => apiRequest<{ id: string }>(`/notifications/${id}`, { method: "DELETE" }),
 };
 

@@ -1,7 +1,6 @@
 "use client";
 
 import Badge from "@/components/Badge";
-import { UserIcon } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 
 interface PatientCardProps {

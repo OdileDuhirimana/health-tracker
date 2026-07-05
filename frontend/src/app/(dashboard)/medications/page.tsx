@@ -17,10 +17,18 @@ import { Alert } from "@/components/ui/Alert";
 import SidebarPanel from "@/components/ui/SidebarPanel";
 import { LoadingSkeleton } from "@/components/LoadingSkeleton";
 import { useDispensations } from "@/hooks/useDispensations";
-import { MedicationTrackingTable } from "@/features/medications/components/MedicationTrackingTable";
+import { MedicationTrackingTable, TrackingRecord } from "@/features/medications/components/MedicationTrackingTable";
 import { Pagination } from "@/components/ui/Pagination";
 import { useDebounce } from "@/hooks/useDebounce";
 import { dispensationsService } from "@/services";
+import { Dispensation } from "@/types";
+import { normalizeListResponse } from "@/utils/api";
+
+interface QuickDispenseData {
+  patientId?: string;
+  programId?: string;
+  medicationId?: string;
+}
 
 export default function MedicationsPage() {
   const { user } = useAuth();
@@ -28,9 +36,12 @@ export default function MedicationsPage() {
   const { notify } = useToast();
   const [recordOpen, setRecordOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyPatientId, setHistoryPatientId] = useState<string | null>(null);
+  const [historyDispensations, setHistoryDispensations] = useState<Dispensation[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [overdueOpen, setOverdueOpen] = useState(false);
-  const [quickDispenseData, setQuickDispenseData] = useState<any>(null);
-  const [overdueMedications, setOverdueMedications] = useState<any[]>([]);
+  const [quickDispenseData, setQuickDispenseData] = useState<QuickDispenseData | null>(null);
+  const [overdueMedications, setOverdueMedications] = useState<TrackingRecord[]>([]);
   const [loadingOverdue, setLoadingOverdue] = useState(false);
   const [overdueViewAll, setOverdueViewAll] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -44,18 +55,12 @@ export default function MedicationsPage() {
   }, [debouncedSearch]);
 
   const {
-    dispensations,
     patients,
     programs,
     medications,
     trackingTable,
     overdueCount,
     loading,
-    loadPatients,
-    loadPrograms,
-    loadMedications,
-    loadDispensations,
-    loadOverdueCount,
     recordDispensation,
   } = useDispensations();
 
@@ -75,7 +80,7 @@ export default function MedicationsPage() {
     if (!trackingTable || !Array.isArray(trackingTable)) return [];
     if (!debouncedSearch) return trackingTable;
     const searchLower = debouncedSearch.toLowerCase();
-    return trackingTable.filter((record: any) =>
+    return trackingTable.filter((record) =>
       (record.patientName || "").toLowerCase().includes(searchLower) ||
       (record.medicationName || "").toLowerCase().includes(searchLower) ||
       (record.programName || "").toLowerCase().includes(searchLower)
@@ -115,16 +120,26 @@ export default function MedicationsPage() {
       await recordDispensation(data);
       setRecordOpen(false);
       setQuickDispenseData(null);
-    } catch (error) {
+    } catch {
       // Error handled by hook
     }
   };
 
-  const handlePatientClick = (patientId: string) => {
+  const handlePatientClick = async (patientId: string) => {
+    setHistoryPatientId(patientId);
     setHistoryOpen(true);
+    setLoadingHistory(true);
+    try {
+      const response = await dispensationsService.getAll({ patientId });
+      setHistoryDispensations(normalizeListResponse<Dispensation>(response.data));
+    } catch {
+      setHistoryDispensations([]);
+    } finally {
+      setLoadingHistory(false);
+    }
   };
 
-  const handleDispenseNow = (dispensation: any) => {
+  const handleDispenseNow = (dispensation: { patientId: string; programId: string; medicationId: string }) => {
     setQuickDispenseData({
       patientId: dispensation.patientId,
       programId: dispensation.programId,
@@ -178,7 +193,7 @@ export default function MedicationsPage() {
                   if (response.data) {
                     setOverdueMedications(response.data || []);
                   }
-                } catch (error) {
+                } catch {
                   notify("Failed to load overdue medications", "error");
                 } finally {
                   setLoadingOverdue(false);
@@ -213,26 +228,24 @@ export default function MedicationsPage() {
                 />
               </div>
               <MedicationTrackingTable
-                trackingData={paginatedTrackingData.map((record: any) => {
-                  // Safely convert dates, handle if already Date objects or invalid
-                  let lastCollected = null;
-                  let nextDue = new Date();
-                  
+                trackingData={paginatedTrackingData.map((record) => {
+                  // The tracking-table endpoint always returns ISO date
+                  // strings (or null); parse them to Date objects here so
+                  // MedicationTrackingTable can format them directly.
+                  let lastCollected: Date | null = null;
+                  let nextDue: Date = new Date();
+
                   try {
                     if (record.lastCollected) {
-                      lastCollected = record.lastCollected instanceof Date 
-                        ? record.lastCollected 
-                        : new Date(record.lastCollected);
+                      lastCollected = new Date(record.lastCollected);
                     }
                     if (record.nextDue) {
-                      nextDue = record.nextDue instanceof Date 
-                        ? record.nextDue 
-                        : new Date(record.nextDue);
+                      nextDue = new Date(record.nextDue);
                     }
-                  } catch (e) {
+                  } catch {
                     // Date conversion error handled silently
                   }
-                  
+
                   return {
                     ...record,
                     lastCollected,
@@ -282,19 +295,29 @@ export default function MedicationsPage() {
       />
 
       <SidebarPanel open={historyOpen} onClose={() => setHistoryOpen(false)} title="Medication History">
-        <div className="text-sm space-y-3 text-gray-700">
-          <div className="font-semibold text-gray-900">John Doe</div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span>Sertraline 50mg</span>
-              <span className="text-xs text-gray-500">Today, 9:05 AM</span>
+        {loadingHistory ? (
+          <LoadingSkeleton className="h-48" />
+        ) : historyDispensations.length === 0 ? (
+          <div className="text-center py-8 text-gray-500 text-sm">
+            <p>No dispensation history found{historyPatientId ? " for this patient" : ""}.</p>
+          </div>
+        ) : (
+          <div className="text-sm space-y-3 text-gray-700">
+            <div className="font-semibold text-gray-900">
+              {historyDispensations[0]?.patient?.fullName || historyDispensations[0]?.patient?.name || "Patient"}
             </div>
-            <div className="flex items-center justify-between">
-              <span>Sertraline 50mg</span>
-              <span className="text-xs text-red-600">Yesterday, 10:20 AM (late)</span>
+            <div className="space-y-2">
+              {historyDispensations.map((dispensation) => (
+                <div key={dispensation.id} className="flex items-center justify-between">
+                  <span>{dispensation.medication?.name || "Medication"}</span>
+                  <span className="text-xs text-gray-500">
+                    {new Date(dispensation.dispensedAt).toLocaleString()}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
+        )}
       </SidebarPanel>
 
       <SidebarPanel open={overdueOpen} onClose={() => {
@@ -315,7 +338,7 @@ export default function MedicationsPage() {
               </p>
             </div>
             <div className="space-y-3">
-              {(overdueViewAll ? overdueMedications : overdueMedications.slice(0, 10)).map((med: any, idx: number) => (
+              {(overdueViewAll ? overdueMedications : overdueMedications.slice(0, 10)).map((med, idx: number) => (
                 <div
                   key={`${med.patientId}_${med.medicationId}_${med.programId}_${idx}`}
                   className="p-3 border border-red-200 bg-red-50 rounded-lg"

@@ -9,7 +9,7 @@ interface UseFormOptions<T> {
   validate?: (values: T) => Record<string, string>;
 }
 
-export function useForm<T extends Record<string, any>>({
+export function useForm<T extends Record<string, unknown>>({
   initialValues,
   onSubmit,
   validate,
@@ -19,7 +19,7 @@ export function useForm<T extends Record<string, any>>({
   const [loading, setLoading] = useState(false);
   const { notify } = useToast();
 
-  const handleChange = useCallback((name: keyof T, value: any) => {
+  const handleChange = useCallback(<K extends keyof T>(name: K, value: T[K]) => {
     setValues((prev) => ({ ...prev, [name]: value }));
     // Clear error when user starts typing
     if (errors[name as string]) {

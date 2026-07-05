@@ -11,7 +11,6 @@ interface ProgramFiltersProps {
   query: string;
   onTypeFilterChange: (value: string) => void;
   onStatusFilterChange: (value: string) => void;
-  onQueryChange: (value: string) => void;
   onClear: () => void;
 }
 
@@ -21,7 +20,6 @@ export function ProgramFilters({
   query,
   onTypeFilterChange,
   onStatusFilterChange,
-  onQueryChange,
   onClear,
 }: ProgramFiltersProps) {
   const hasFilters = typeFilter || statusFilter || query;

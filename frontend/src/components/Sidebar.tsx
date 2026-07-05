@@ -28,7 +28,18 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  
+  // Tracks the pathname the mobile-menu-open state was last computed for.
+  // Comparing against this during render (instead of syncing via a
+  // useEffect that calls setIsMobileOpen) avoids the extra
+  // render-then-immediately-rerender pass that a set-state-in-effect
+  // pattern would cause on every navigation — see
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-state-based-on-a-prop-change
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
+    setIsMobileOpen(false);
+  }
+
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -37,11 +48,6 @@ export default function Sidebar() {
       .toUpperCase()
       .slice(0, 2);
   };
-
-  // Close mobile menu when route changes
-  useEffect(() => {
-    setIsMobileOpen(false);
-  }, [pathname]);
 
   // Prevent body scroll when mobile menu is open
   useEffect(() => {

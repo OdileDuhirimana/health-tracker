@@ -1,13 +1,16 @@
 /** Quick enrollment form for enrolling patients into programs. */
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { FormField, FormInput, FormSelect, FormActions } from "@/components/ui/FormField";
 import Modal from "@/components/ui/Modal";
 import SearchableSelect from "@/components/ui/SearchableSelect";
-import { programsApi, usersApi } from "@/lib/api";
+import { programsApi } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/Toast";
+import { Program } from "@/types";
+import { isValidUuid } from "@/utils/validation";
+import { normalizeListResponse } from "@/utils/api";
 
 interface QuickEnrollmentFormProps {
   open: boolean;
@@ -35,19 +38,44 @@ export function QuickEnrollmentForm({
   const [enrollmentDate, setEnrollmentDate] = useState(new Date().toISOString().split('T')[0]);
   const [loadingStaff, setLoadingStaff] = useState(false);
 
-  // UUID validation regex
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
   // Validate patientId on mount
   useEffect(() => {
     if (open) {
       if (!patientId) {
         notify("Patient ID is missing. Please try again or refresh the page.", "error");
-      } else if (!uuidRegex.test(patientId)) {
+      } else if (!isValidUuid(patientId)) {
         notify("Invalid Patient ID format. Please ensure you're on the correct patient page.", "error");
       }
     }
   }, [open, patientId, notify]);
+
+  const loadPrograms = useCallback(async () => {
+    try {
+      const response = await programsApi.getAll();
+      if (response.data) {
+        const programsData = normalizeListResponse<Program>(response.data);
+        // Filter out programs the patient is already enrolled in
+        let availablePrograms = programsData.filter(
+          (p) => !existingProgramIds.includes(p.id)
+        );
+
+        // For Healthcare Staff: only show programs they are assigned to
+        if (user?.role === "Healthcare Staff") {
+          availablePrograms = availablePrograms.filter(
+            (p) =>
+              p.isAssigned ||
+              p.assignedStaff?.some(
+                (staff) => staff.id === user.id || staff.userId === user.id
+              )
+          );
+        }
+
+        setPrograms(availablePrograms.map((p) => ({ id: p.id, name: p.name, type: p.type })));
+      }
+    } catch {
+      setPrograms([]);
+    }
+  }, [existingProgramIds, user?.id, user?.role]);
 
   useEffect(() => {
     if (open) {
@@ -57,7 +85,41 @@ export function QuickEnrollmentForm({
       setEnrollmentDate(new Date().toISOString().split('T')[0]);
       setStaff([]); // Clear staff when modal opens
     }
-  }, [open]);
+  }, [open, loadPrograms]);
+
+  const loadStaffForProgram = useCallback(async (programId: string) => {
+    if (!programId) return;
+
+    setLoadingStaff(true);
+    try {
+      // Fetch program details to get assigned staff
+      const programResponse = await programsApi.getById(programId);
+      if (programResponse.data) {
+        const program = programResponse.data;
+        // Get staff assigned to this program
+        const assignedStaff = program.assignedStaff || [];
+
+        // Map assigned staff to the format we need
+        const staffData = assignedStaff
+          .filter((s) => s.role === "Healthcare Staff" || s.role === "Admin")
+          .map((s) => ({
+            id: s.id || s.userId || "",
+            name: s.name || s.email || "Unknown Staff",
+          }));
+
+        setStaff(staffData);
+
+        // Clear selected staff if they're not in the new list
+        setSelectedStaffId((current) =>
+          current && !staffData.some((s) => s.id === current) ? "" : current
+        );
+      }
+    } catch {
+      setStaff([]);
+    } finally {
+      setLoadingStaff(false);
+    }
+  }, []);
 
   // Load staff when program is selected
   useEffect(() => {
@@ -67,74 +129,7 @@ export function QuickEnrollmentForm({
       setStaff([]);
       setSelectedStaffId("");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedProgramId, user?.role]);
-
-  const loadPrograms = async () => {
-    try {
-      const response = await programsApi.getAll();
-      if (response.data) {
-        let programsData: any[] = [];
-        if (Array.isArray(response.data)) {
-          programsData = response.data;
-        } else if (response.data?.data && Array.isArray(response.data.data)) {
-          programsData = response.data.data;
-        }
-        // Filter out programs the patient is already enrolled in
-        let availablePrograms = programsData.filter(
-          (p: any) => !existingProgramIds.includes(p.id)
-        );
-        
-        // For Healthcare Staff: only show programs they are assigned to
-        if (user?.role === "Healthcare Staff") {
-          availablePrograms = availablePrograms.filter((p: any) => 
-            p.isAssigned || p.assignedStaff?.some((staff: any) => 
-              (staff.id === user.id || staff.userId === user.id) || 
-              (typeof staff === 'string' && staff === user.id)
-            )
-          );
-        }
-        
-        setPrograms(availablePrograms.map((p: any) => ({ id: p.id, name: p.name, type: p.type })));
-      }
-    } catch (error) {
-      setPrograms([]);
-    }
-  };
-
-  const loadStaffForProgram = async (programId: string) => {
-    if (!programId) return;
-    
-    setLoadingStaff(true);
-    try {
-      // Fetch program details to get assigned staff
-      const programResponse = await programsApi.getById(programId);
-      if (programResponse.data) {
-        const program = programResponse.data;
-        // Get staff assigned to this program
-        const assignedStaff = program.assignedStaff || [];
-        
-        // Map assigned staff to the format we need
-        const staffData = assignedStaff
-          .filter((s: any) => s.role === "Healthcare Staff" || s.role === "Admin")
-          .map((s: any) => ({ 
-            id: s.id || s.userId, 
-            name: s.name || s.email || "Unknown Staff" 
-          }));
-        
-        setStaff(staffData);
-        
-        // Clear selected staff if they're not in the new list
-        if (selectedStaffId && !staffData.some((s: any) => s.id === selectedStaffId)) {
-          setSelectedStaffId("");
-        }
-      }
-    } catch (error) {
-      setStaff([]);
-    } finally {
-      setLoadingStaff(false);
-    }
-  };
+  }, [selectedProgramId, user?.role, loadStaffForProgram]);
 
   const handleProgramChange = (programId: string) => {
     setSelectedProgramId(programId);
@@ -147,7 +142,7 @@ export function QuickEnrollmentForm({
       notify("Patient ID is required. Please refresh the page and try again.", "error");
       return;
     }
-    if (!uuidRegex.test(patientId)) {
+    if (!isValidUuid(patientId)) {
       notify("Invalid Patient ID format. Please ensure you're on the correct patient page.", "error");
       return;
     }
@@ -155,7 +150,7 @@ export function QuickEnrollmentForm({
       notify("Please select a program to enroll the patient in.", "error");
       return;
     }
-    if (!uuidRegex.test(selectedProgramId)) {
+    if (!isValidUuid(selectedProgramId)) {
       notify("Invalid program selection. Please try selecting the program again.", "error");
       return;
     }

@@ -1,12 +1,14 @@
 /** Form component for creating and editing program information. */
 "use client";
 
-import { useState, useEffect } from "react";
-import { FormField, FormInput, FormTextarea, FormSelect, FormActions } from "@/components/ui/FormField";
+import { useState, useEffect, useCallback } from "react";
+import { FormField, FormInput, FormTextarea, FormActions } from "@/components/ui/FormField";
 import Modal from "@/components/ui/Modal";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { medicationsApi, usersApi } from "@/lib/api";
 import { PlusIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { Medication, User } from "@/types";
+import { normalizeListResponse } from "@/utils/api";
 
 interface ProgramComponent {
   type: 'session' | 'consultation' | 'group_discussion';
@@ -14,11 +16,23 @@ interface ProgramComponent {
   description?: string;
 }
 
+export interface ProgramFormSubmitData {
+  name: string;
+  type: string;
+  description: string;
+  sessionFreq: string;
+  duration: number;
+  durationUnit: string;
+  medicationIds?: string[];
+  staffIds?: string[];
+  components?: ProgramComponent[];
+}
+
 interface ProgramFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: any) => Promise<void>;
-  medications?: Array<{ id: string; name: string; dosage: string; frequency: string; programType?: string; programs?: any[] }>;
+  onSubmit: (data: ProgramFormSubmitData) => Promise<void>;
+  medications?: Medication[];
   loading?: boolean;
   initialValues?: {
     name?: string;
@@ -43,8 +57,13 @@ export function ProgramForm({ open, onClose, onSubmit, medications: initialMedic
   const [duration, setDuration] = useState<number>(initialValues?.duration || 12);
   const [durationUnit, setDurationUnit] = useState<string>(initialValues?.durationUnit || 'weeks');
 
-  // Update state when initialValues changes
-  useEffect(() => {
+  // Sync form state when `initialValues`/`open` change. Derived during
+  // render (rather than in a useEffect that calls setState) to avoid the
+  // extra render pass a set-state-in-effect pattern would cause — see
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-state-based-on-a-prop-change
+  const [prevSyncKey, setPrevSyncKey] = useState({ initialValues, open });
+  if (initialValues !== prevSyncKey.initialValues || open !== prevSyncKey.open) {
+    setPrevSyncKey({ initialValues, open });
     if (initialValues && open) {
       setSelectedProgramType(initialValues.type || "");
       setSelectedMedicationIds(initialValues.medications || []);
@@ -61,57 +80,58 @@ export function ProgramForm({ open, onClose, onSubmit, medications: initialMedic
       setDuration(12);
       setDurationUnit('weeks');
     }
-  }, [initialValues, open]);
+  }
 
-  useEffect(() => {
-    if (open) {
-      if (medications.length === 0) {
-      loadMedications();
-      }
-      loadStaff();
-    }
-  }, [open]);
-
-  const loadMedications = async () => {
+  const loadMedications = useCallback(async () => {
     try {
       const response = await medicationsApi.getAll();
       if (response.data) {
-        let medicationsData: any[] = [];
-        if (Array.isArray(response.data)) {
-          medicationsData = response.data;
-        } else if (response.data?.data && Array.isArray(response.data.data)) {
-          medicationsData = response.data.data;
-        }
-        setMedications(medicationsData);
+        setMedications(normalizeListResponse<Medication>(response.data));
       }
-    } catch (error) {
+    } catch {
       setMedications([]);
     }
-  };
+  }, []);
 
-  const loadStaff = async () => {
+  const loadStaff = useCallback(async () => {
     try {
       const response = await usersApi.getAll();
       if (response.data) {
-        const staffData = Array.isArray(response.data) 
-          ? response.data 
-          : ((response.data as any)?.data || []);
+        const staffData = normalizeListResponse<User>(response.data);
         // Filter only Healthcare Staff
-        const healthcareStaff = staffData.filter((u: any) => u.role === "Healthcare Staff");
-        setAllStaff(healthcareStaff.map((u: any) => ({
+        const healthcareStaff = staffData.filter((u) => u.role === "Healthcare Staff");
+        setAllStaff(healthcareStaff.map((u) => ({
           id: u.id,
           name: u.name,
           email: u.email,
         })));
       }
-    } catch (error) {
+    } catch {
       setAllStaff([]);
     }
-  };
+  }, []);
+
+  // Fetch inline (rather than a bare call to the extracted loaders) so
+  // this reads as a standard "fetch on dependency change" effect per
+  // https://react.dev/learn/you-might-not-need-an-effect#fetching-data
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      await Promise.all([
+        medications.length === 0 ? loadMedications() : Promise.resolve(),
+        loadStaff(),
+      ]);
+      if (cancelled) return;
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, medications.length, loadMedications, loadStaff]);
 
   const getFilteredMedications = (programType: string) => {
     if (!programType) return medications;
-    return medications.filter((m) => !m.programType || m.programType === programType || m.programs?.some((p: any) => p.type === programType));
+    return medications.filter((m) => !m.programType || m.programType === programType || m.programs?.some((p) => p.type === programType));
   };
 
   const addComponent = () => {

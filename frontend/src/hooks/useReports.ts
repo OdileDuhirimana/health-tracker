@@ -2,7 +2,7 @@
  * Custom hook for generating and exporting reports.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { reportsService, dashboardService } from "@/services";
 import { useToast } from "@/components/Toast";
 import { downloadCSV, exportPatientProgress } from "@/utils/csv";
@@ -43,7 +43,7 @@ export function useReports() {
           averageAttendance: avgAttendance,
         }));
       }
-    } catch (error) {
+    } catch {
       // Error handled silently
     }
   }, []);
@@ -62,7 +62,7 @@ export function useReports() {
       } else {
         notify(response.error || "Failed to generate report", "error");
       }
-    } catch (error) {
+    } catch {
       notify("Failed to generate patient report", "error");
     } finally {
       setLoading(false);
@@ -82,7 +82,7 @@ export function useReports() {
       } else {
         notify(response.error || "Failed to generate report", "error");
       }
-    } catch (error) {
+    } catch {
       notify("Failed to generate program report", "error");
     } finally {
       setLoading(false);
@@ -99,7 +99,7 @@ export function useReports() {
       } else {
         notify(response.error || "Failed to generate report", "error");
       }
-    } catch (error) {
+    } catch {
       notify("Failed to generate medication report", "error");
     } finally {
       setLoading(false);
@@ -120,7 +120,7 @@ export function useReports() {
       } else {
         notify(response.error || "Failed to generate report", "error");
       }
-    } catch (error) {
+    } catch {
       notify("Failed to generate attendance report", "error");
     } finally {
       setLoading(false);
@@ -137,7 +137,7 @@ export function useReports() {
       } else {
         notify(response.error || "Failed to generate report", "error");
       }
-    } catch (error) {
+    } catch {
       notify("Failed to generate user report", "error");
     } finally {
       setLoading(false);
