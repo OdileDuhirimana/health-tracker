@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth } from '@nes
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @ApiTags('Authentication')
@@ -34,8 +35,8 @@ export class AuthController {
   }
 
   @Post('register')
-  @ApiOperation({ 
-    summary: 'User registration', 
+  @ApiOperation({
+    summary: 'User registration',
     description: 'Register a new user account. Only Healthcare Staff or Guest roles can be registered. Admin accounts cannot be created via this endpoint and must be created by system administrators.' 
   })
   @ApiBody({ type: RegisterDto })
@@ -84,17 +85,8 @@ export class AuthController {
   @Post('profile')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update user profile', description: 'Update own profile/password. All authenticated users can update their own profile.' })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        name: { type: 'string', description: 'New name' },
-        password: { type: 'string', description: 'New password' },
-        currentPassword: { type: 'string', description: 'Current password (required if changing password)' },
-      },
-    },
-  })
-  @ApiResponse({ 
+  @ApiBody({ type: UpdateProfileDto })
+  @ApiResponse({
     status: 200, 
     description: 'Profile updated successfully',
     schema: {
@@ -109,7 +101,7 @@ export class AuthController {
   })
   @ApiResponse({ status: 400, description: 'Invalid data (e.g., current password incorrect)' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async updateProfile(@Request() req, @Body() updateData: { name?: string; password?: string; currentPassword?: string }) {
+  async updateProfile(@Request() req, @Body() updateData: UpdateProfileDto) {
     return this.authService.updateProfile(req.user.userId, updateData);
   }
 }

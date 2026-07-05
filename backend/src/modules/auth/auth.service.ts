@@ -6,6 +6,7 @@ import * as bcrypt from 'bcryptjs';
 import { User, UserRole, UserStatus } from '../../entities/user.entity';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto, ALLOWED_REGISTRATION_ROLES } from './dto/register.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Injectable()
 export class AuthService {
@@ -16,8 +17,14 @@ export class AuthService {
   ) {}
 
   async validateUser(email: string, password: string): Promise<any> {
+    // `password` is `select: false` on the entity (see user.entity.ts) to
+    // prevent it leaking through relations elsewhere in the app; this is
+    // the one legitimate place that needs the real hash, so it's explicitly
+    // opted back in here rather than widening the column's default
+    // visibility.
     const user = await this.userRepository.findOne({
       where: { email },
+      select: ['id', 'name', 'email', 'password', 'role', 'status', 'createdAt', 'updatedAt'],
     });
 
     if (!user) {
@@ -73,7 +80,7 @@ export class AuthService {
 
     // Default to Healthcare Staff if no role provided
     const requestedRole: UserRole = registerDto.role || UserRole.HEALTHCARE_STAFF;
-    if (!ALLOWED_REGISTRATION_ROLES.includes(requestedRole as UserRole.HEALTHCARE_STAFF | UserRole.GUEST)) {
+    if (!ALLOWED_REGISTRATION_ROLES.includes(requestedRole)) {
       throw new BadRequestException(`Invalid role for registration. Only "${UserRole.HEALTHCARE_STAFF}" or "${UserRole.GUEST}" roles are allowed. Admin accounts can only be created by system administrators.`);
     }
 
@@ -107,9 +114,13 @@ export class AuthService {
     return result;
   }
 
-  async updateProfile(userId: string, updateData: { name?: string; password?: string; currentPassword?: string }) {
+  async updateProfile(userId: string, updateData: UpdateProfileDto) {
+    // Explicitly opts back into the `select: false` password column — see
+    // the comment on AuthService.validateUser above — because verifying
+    // `currentPassword` below requires the real hash.
     const user = await this.userRepository.findOne({
       where: { id: userId },
+      select: ['id', 'name', 'email', 'password', 'role', 'status', 'createdAt', 'updatedAt'],
     });
 
     if (!user) {

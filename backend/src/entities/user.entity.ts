@@ -34,7 +34,20 @@ export class User {
   @Column({ unique: true })
   email: string;
 
-  @Column()
+  // `select: false` is the actual enforcement mechanism against password-hash
+  // leakage — not the ad hoc `const { password: _, ...result } = user`
+  // destructuring scattered across services. That pattern only protects the
+  // *direct* User row a service happens to remember to strip; it does
+  // nothing for a User loaded transitively via a relation (e.g. a
+  // Dispensation's `dispensedBy`, an Attendance's `markedBy`, or a Program's
+  // `assignedStaff`), which serialized straight into API responses with the
+  // bcrypt hash included — a real, previously-undetected vulnerability found
+  // via direct API verification. With `select: false`, TypeORM omits this
+  // column from every query by default, including relations, unless a call
+  // site explicitly opts back in (see AuthService.validateUser and
+  // AuthService.updateProfile, the only two places that legitimately need
+  // the hash to run bcrypt.compare against it).
+  @Column({ select: false })
   password: string;
 
   @Column({
