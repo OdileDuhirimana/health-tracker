@@ -1,5 +1,6 @@
 import { Controller, Post, Body, Get, UseGuards, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -12,6 +13,11 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('login')
+  // Stricter than the app-wide default limit: login is the highest-value
+  // target for credential-stuffing/brute-force, so it gets its own named
+  // throttle ('auth': 5 requests/minute per IP, configured in AppModule)
+  // instead of the generous default (100/minute) applied everywhere else.
+  @Throttle({ auth: { limit: 5, ttl: 60_000 } })
   @ApiOperation({ summary: 'User login', description: 'Authenticate user and receive JWT token' })
   @ApiBody({ type: LoginDto })
   @ApiResponse({ 
@@ -35,8 +41,9 @@ export class AuthController {
   }
 
   @Post('register')
+  @Throttle({ auth: { limit: 5, ttl: 60_000 } })
   @ApiOperation({
-    summary: 'User registration',
+    summary: 'User registration', 
     description: 'Register a new user account. Only Healthcare Staff or Guest roles can be registered. Admin accounts cannot be created via this endpoint and must be created by system administrators.' 
   })
   @ApiBody({ type: RegisterDto })
