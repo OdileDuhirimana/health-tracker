@@ -1,8 +1,17 @@
 /**
- * Dynamic RBAC Configuration
- * 
+ * RBAC Configuration
+ *
  * This file defines role-based access control rules in a centralized, maintainable way.
- * New roles can be added by extending this configuration without modifying core guard logic.
+ * It is the single, authoritative RBAC model for this application: a static,
+ * enum-driven role -> permission map, enforced by `PermissionsGuard` and `RolesGuard`
+ * on every controller. A previous revision of this codebase also carried a parallel,
+ * unused relational schema (`Role`/`Permission` entities with many-to-many join tables)
+ * intended as a future path to database-driven, runtime-configurable roles. That
+ * schema was never wired into any guard or service, so it added surface area without
+ * behavior — see ADR-0001 (`docs/adr/0001-rbac-model.md`) for the decision record. It
+ * has been removed; adding new roles or permissions means editing this file and
+ * redeploying, which is an intentional, disclosed tradeoff for an application of this
+ * size, not an oversight.
  */
 
 import { UserRole } from '../../entities/user.entity';
@@ -150,27 +159,5 @@ export interface ResourcePermission {
   resource: string;
   action: 'create' | 'read' | 'update' | 'delete';
   allowedRoles: UserRole[];
-}
-
-/**
- * Future: Dynamic role creation
- * This can be extended to allow runtime role creation from database
- */
-export interface DynamicRole {
-  name: string;
-  permissions: Permission[];
-  inheritsFrom?: UserRole;
-}
-
-/**
- * Helper to extend role permissions dynamically
- * Useful for future dynamic RBAC features
- */
-export function extendRolePermissions(
-  role: UserRole,
-  additionalPermissions: Permission[]
-): Permission[] {
-  const basePermissions = ROLE_PERMISSIONS[role] || [];
-  return [...new Set([...basePermissions, ...additionalPermissions])];
 }
 

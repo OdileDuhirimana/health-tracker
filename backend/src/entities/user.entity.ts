@@ -10,7 +10,6 @@ import {
 } from 'typeorm';
 import { Program } from './program.entity';
 import { PatientEnrollment } from './patient-enrollment.entity';
-import { Role } from './role.entity';
 
 export enum UserRole {
   ADMIN = 'Admin',
@@ -70,11 +69,6 @@ export class User {
 
   @OneToMany(() => PatientEnrollment, (enrollment) => enrollment.assignedStaff)
   assignedPatients: PatientEnrollment[];
-
-  // Relational RBAC: optional until fully switched from enum role
-  @ManyToMany(() => Role, (role) => role.users)
-  @JoinTable({ name: 'user_roles' })
-  roles: Role[];
 
   @CreateDateColumn()
   createdAt: Date;

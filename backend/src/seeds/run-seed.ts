@@ -10,8 +10,6 @@ import { Dispensation } from '../entities/dispensation.entity';
 import { Attendance } from '../entities/attendance.entity';
 import { ActivityLog } from '../entities/activity-log.entity';
 import { Notification } from '../entities/notification.entity';
-import { Role } from '../entities/role.entity';
-import { Permission } from '../entities/permission.entity';
 
 async function runSeed() {
   const configService = new ConfigService({
@@ -29,7 +27,7 @@ async function runSeed() {
     username: configService.get<string>('DB_USERNAME'),
     password: configService.get<string>('DB_PASSWORD'),
     database: configService.get<string>('DB_DATABASE'),
-    entities: [User, Program, Medication, Patient, PatientEnrollment, Dispensation, Attendance, ActivityLog, Notification, Role, Permission],
+    entities: [User, Program, Medication, Patient, PatientEnrollment, Dispensation, Attendance, ActivityLog, Notification],
     synchronize: true, // Enable to auto-create tables if they don't exist
   });
 

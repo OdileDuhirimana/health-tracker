@@ -3,8 +3,6 @@ import * as dotenv from 'dotenv';
 import { join } from 'path';
 import { seedSimpleDatabase } from './src/seeds/simple-seed';
 import { User } from './src/entities/user.entity';
-import { Role } from './src/entities/role.entity';
-import { Permission } from './src/entities/permission.entity';
 import { Program } from './src/entities/program.entity';
 import { Medication } from './src/entities/medication.entity';
 import { Patient } from './src/entities/patient.entity';
@@ -24,7 +22,7 @@ const AppDataSource = new DataSource({
   username: process.env.DB_USERNAME || 'postgres',
   password: process.env.DB_PASSWORD || 'postgres',
   database: process.env.DB_DATABASE || 'healthtrackdb',
-  entities: [User, Role, Permission, Program, Medication, Patient, PatientEnrollment, Dispensation, Attendance, ActivityLog, Notification],
+  entities: [User, Program, Medication, Patient, PatientEnrollment, Dispensation, Attendance, ActivityLog, Notification],
   synchronize: true, // Use synchronize for reset to create all tables from entities
   logging: false,
 });
