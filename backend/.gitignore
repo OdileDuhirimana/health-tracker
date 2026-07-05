@@ -18,6 +18,11 @@ lerna-debug.log*
 /coverage
 /.nyc_output
 
+# Generated, non-deterministic e2e smoke-test output (see
+# test/e2e/backend-api.e2e-spec.ts's afterAll) — not a Jest artifact, not
+# meant to be committed.
+/reports
+
 # IDEs and editors
 /.idea
 .project
