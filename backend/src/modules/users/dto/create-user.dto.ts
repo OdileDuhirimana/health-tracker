@@ -1,6 +1,7 @@
 import { IsEmail, IsNotEmpty, IsString, IsOptional, IsEnum, IsArray } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserRole } from '../../../entities/user.entity';
+import { IsStrongPassword, PASSWORD_MIN_LENGTH } from '../../../common/validators/is-strong-password.decorator';
 
 export class CreateUserDto {
   @ApiProperty({
@@ -20,12 +21,12 @@ export class CreateUserDto {
   email: string;
 
   @ApiProperty({
-    example: 'SecurePassword123!',
-    description: 'Password (minimum 6 characters)',
-    minLength: 6,
+    example: 'SecurePassword123',
+    description: `Password (minimum ${PASSWORD_MIN_LENGTH} characters; must include uppercase, lowercase, and a number)`,
+    minLength: PASSWORD_MIN_LENGTH,
   })
-  @IsString()
   @IsNotEmpty()
+  @IsStrongPassword()
   password: string;
 
   @ApiPropertyOptional({

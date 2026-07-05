@@ -1,6 +1,7 @@
-import { IsEmail, IsNotEmpty, IsString, IsEnum, IsIn, ValidateIf } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, IsEnum, IsIn } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { UserRole } from '../../../entities/user.entity';
+import { IsStrongPassword, PASSWORD_MIN_LENGTH } from '../../../common/validators/is-strong-password.decorator';
 
 // Allowed roles for registration (Admin cannot be registered via signup)
 export const ALLOWED_REGISTRATION_ROLES = [
@@ -19,9 +20,13 @@ export class RegisterDto {
   @IsNotEmpty()
   email: string;
 
-  @ApiProperty({ example: 'password123', description: 'Password (min 6 characters)' })
-  @IsString()
+  @ApiProperty({
+    example: 'SecurePass123',
+    description: `Password (minimum ${PASSWORD_MIN_LENGTH} characters; must include uppercase, lowercase, and a number)`,
+    minLength: PASSWORD_MIN_LENGTH,
+  })
   @IsNotEmpty()
+  @IsStrongPassword()
   password: string;
 
   @ApiProperty({ 

@@ -9,6 +9,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { LocalStrategy } from './strategies/local.strategy';
 import { User } from '../../entities/user.entity';
 import type { StringValue } from 'ms';
+import { resolveJwtSecret } from '../../common/config/jwt-secret.util';
 
 @Module({
   imports: [
@@ -17,16 +18,9 @@ import type { StringValue } from 'ms';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService): JwtModuleOptions => {
-        const isProduction = (configService.get<string>('NODE_ENV') || '').toLowerCase() === 'production';
-        const jwtSecret = configService.get<string>('JWT_SECRET');
-
-        if (isProduction && !jwtSecret) {
-          throw new Error('JWT_SECRET must be set in production.');
-        }
-
         const expiresIn = configService.get<string>('JWT_EXPIRES_IN', '7d');
         return {
-          secret: jwtSecret || 'dev-secret-change-me',
+          secret: resolveJwtSecret(configService),
           signOptions: {
             expiresIn: expiresIn as StringValue,
           },
