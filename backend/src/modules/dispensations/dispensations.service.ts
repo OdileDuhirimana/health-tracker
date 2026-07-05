@@ -158,13 +158,40 @@ export class DispensationsService {
     }
   }
 
+  /**
+   * Columns the /dispensations list may be sorted by. Kept as an explicit
+   * allowlist (rather than passing the client-supplied `sortBy` straight
+   * into `orderBy`) so a query parameter can never be used to reference an
+   * arbitrary column or inject raw SQL into the ORDER BY clause.
+   */
+  private static readonly SORTABLE_COLUMNS: Record<string, string> = {
+    dispensedAt: 'dispensation.dispensedAt',
+    createdAt: 'dispensation.createdAt',
+    quantity: 'dispensation.quantity',
+  };
+
   async findAll(filters?: {
     patientId?: string;
     programId?: string;
     medicationId?: string;
     startDate?: string;
     endDate?: string;
+    sortBy?: string;
+    sortOrder?: 'ASC' | 'DESC';
+    limit?: number;
   }, userRole?: string, userId?: string) {
+    // Returns a bare array, not a `{ data, pagination }` envelope: this
+    // endpoint is consumed by three different frontend call sites, some of
+    // which fetch it unfiltered and filter client-side (medication detail
+    // history) or scope it by patientId (patient medication history) and
+    // expect a complete list back, not one page of one. Changing the
+    // response shape would silently break those callers. Real page-based
+    // pagination exists on the dedicated /dispensations/tracking-table
+    // endpoint used by the actual paginated table view; this one is instead
+    // defensively bounded — previously it had no limit at all and could
+    // return every dispensation ever recorded in a single response.
+    const limit = Math.min(filters?.limit || 500, 1000);
+
     const query = this.dispensationRepository
       .createQueryBuilder('dispensation')
       .leftJoinAndSelect('dispensation.patient', 'patient')
@@ -199,7 +226,10 @@ export class DispensationsService {
       });
     }
 
-    return query.orderBy('dispensation.dispensedAt', 'DESC').getMany();
+    const sortColumn = DispensationsService.SORTABLE_COLUMNS[filters?.sortBy ?? ''] ?? 'dispensation.dispensedAt';
+    const sortOrder = filters?.sortOrder === 'ASC' ? 'ASC' : 'DESC';
+
+    return query.orderBy(sortColumn, sortOrder).take(limit).getMany();
   }
 
   async findOne(id: string) {
@@ -229,7 +259,14 @@ export class DispensationsService {
         .andWhere('enrollment.assignedStaffId = :userId', { userId });
     }
 
-    return query.orderBy('dispensation.dispensedAt', 'DESC').getMany();
+    // Defensively bounded rather than fully paginated: this endpoint backs a
+    // single patient's "medication history" view, which callers expect as a
+    // complete list, not a paged one. A hard cap still protects against an
+    // unbounded response for a long-tenured patient with years of daily
+    // dispensations, at the cost of silently truncating beyond it — an
+    // acceptable tradeoff here, revisit with real pagination if this proves
+    // too low in practice.
+    return query.orderBy('dispensation.dispensedAt', 'DESC').take(1000).getMany();
   }
 
   async getPendingDispensations() {

@@ -47,6 +47,9 @@ export class DispensationsController {
   @ApiQuery({ name: 'medicationId', required: false, description: 'Filter by medication UUID' })
   @ApiQuery({ name: 'startDate', required: false, description: 'Filter by start date (ISO format)' })
   @ApiQuery({ name: 'endDate', required: false, description: 'Filter by end date (ISO format)' })
+  @ApiQuery({ name: 'sortBy', required: false, enum: ['dispensedAt', 'createdAt', 'quantity'], description: 'Field to sort by (default: dispensedAt)' })
+  @ApiQuery({ name: 'sortOrder', required: false, enum: ['ASC', 'DESC'], description: 'Sort order (default: DESC)' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Max records to return (default: 500, max: 1000)' })
   @ApiResponse({ status: 200, description: 'List of dispensations retrieved successfully' })
   @ApiResponse({ status: 403, description: 'Forbidden - Guest users cannot view dispensations' })
   findAll(
@@ -55,9 +58,25 @@ export class DispensationsController {
     @Query('medicationId') medicationId?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: 'ASC' | 'DESC',
+    @Query('limit') limit?: string,
     @CurrentUser() user?: any,
   ) {
-    return this.dispensationsService.findAll({ patientId, programId, medicationId, startDate, endDate }, user?.role, user?.userId);
+    return this.dispensationsService.findAll(
+      {
+        patientId,
+        programId,
+        medicationId,
+        startDate,
+        endDate,
+        sortBy,
+        sortOrder,
+        limit: limit ? parseInt(limit, 10) : undefined,
+      },
+      user?.role,
+      user?.userId,
+    );
   }
 
   @Get('pending')
