@@ -13,6 +13,14 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableShutdownHooks();
 
+  // Render (and most PaaS hosts) terminates TLS and proxies every request
+  // through an internal load balancer. Without this, Express resolves
+  // req.ip to that proxy's address for every request rather than the real
+  // client from X-Forwarded-For — collapsing the throttler's per-IP quota
+  // into one shared bucket for all traffic, including the platform's own
+  // health-check probe.
+  app.set('trust proxy', 1);
+
   // Standardize every error response shape and stop unexpected exceptions
   // (e.g. raw TypeORM driver errors) from leaking internal detail.
   app.useGlobalFilters(new AllExceptionsFilter());

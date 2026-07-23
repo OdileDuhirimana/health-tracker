@@ -1,5 +1,6 @@
 import { Controller, Get, HttpCode, HttpStatus, ServiceUnavailableException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
+import { SkipThrottle } from '@nestjs/throttler';
 import { DataSource } from 'typeorm';
 
 /**
@@ -14,6 +15,11 @@ import { DataSource } from 'typeorm';
  * side-effect-free way to prove the connection pool is actually usable,
  * not just that the process is alive.
  */
+// Render's own infra polls this route directly to decide whether to route
+// traffic to this instance at all. Throttling it risks a feedback loop:
+// a failing check triggers more frequent retries from the platform, which
+// then get rate-limited too, compounding rather than recovering.
+@SkipThrottle()
 @Controller('health')
 export class HealthController {
   constructor(
